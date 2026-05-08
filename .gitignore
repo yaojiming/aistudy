@@ -1,0 +1,33 @@
+# Build output
+bin/
+obj/
+TestResults/
+
+# User and IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local .NET and NuGet caches used by Codex/sandboxed builds
+.dotnet-home/
+.nuget/
+.appdata/
+.localappdata/
+
+# Secrets and local configuration
+appsettings.Development.json
+*.Development.json
+*.local.json
+*.env
+
+# Logs
+*.log
+logs/
+
+# Android / MAUI packaging output
+*.apk
+*.aab
+*.keystore
