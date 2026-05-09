@@ -16,7 +16,7 @@
             <Border.Shadow>
                 <Shadow Brush="#D7DEE8" Offset="0,6" Radius="12" Opacity="0.5" />
             </Border.Shadow>
-            <Label Text="{Binding MessageText, Source={x:Reference Root}}"
+            <Label x:Name="MessageLabel"
                    FontSize="14"
                    LineHeight="1.32"
                    TextColor="{Binding MessageColor, Source={x:Reference Root}}" />

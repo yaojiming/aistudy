@@ -75,6 +75,7 @@ public class ChatAgent : IStreamingAgent
             ["subject"] = request.Subject ?? "学习",
             ["grade"] = request.Grade ?? "小学",
             ["question"] = request.QuestionText,
+            ["conversation_context"] = request.ConversationContext,
             ["textbook_context"] = string.Empty
         });
     }

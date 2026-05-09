@@ -24,7 +24,10 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
         builder.Services.AddSingleton<ITabletMediaPickerService, TabletMediaPickerService>();
-        builder.Services.AddSingleton<HttpClient>();
+        builder.Services.AddSingleton(_ => new HttpClient
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        });
         builder.Services.AddSingleton<IApiClientService, ApiClientService>();
 
         builder.Services.AddTransient<HomeViewModel>();

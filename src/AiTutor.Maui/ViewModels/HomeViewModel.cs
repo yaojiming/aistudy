@@ -52,11 +52,13 @@ public class HomeViewModel : ViewModelBase
     /// </summary>
     public string RecommendedPractice { get; } = "表内乘除法巩固 10 分钟";
 
-    public ICommand OpenHomeCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("//home"));
-    public ICommand OpenChatCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("chat"));
-    public ICommand OpenPhotoQuestionCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("photo-question"));
-    public ICommand OpenHomeworkCheckCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("homework-check"));
-    public ICommand OpenWrongBookCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("wrong-book"));
+    public ICommand OpenHomeCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("//home", false));
+    public ICommand OpenChatCommand { get; } = new AsyncCommand(
+        () => Shell.Current.GoToAsync("chat", false)
+        );
+    public ICommand OpenPhotoQuestionCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("photo-question", false));
+    public ICommand OpenHomeworkCheckCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("homework-check", false));
+    public ICommand OpenWrongBookCommand { get; } = new AsyncCommand(() => Shell.Current.GoToAsync("wrong-book", false));
     public ICommand OpenTextbookCommand { get; } = new AsyncCommand(() => Shell.Current.DisplayAlert("教材", "教材学习入口已预留。", "知道了"));
     public ICommand OpenStudyPlanCommand { get; } = new AsyncCommand(() => Shell.Current.DisplayAlert("学习计划", "分阶段学习计划入口已预留。", "知道了"));
     public ICommand OpenSettingsCommand { get; } = new AsyncCommand(() => Shell.Current.DisplayAlert("设置", "后端地址在 Resources/Raw/appsettings.json 中配置。", "知道了"));

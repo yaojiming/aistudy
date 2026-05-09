@@ -3,29 +3,29 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Name="Root"
              x:Class="AiTutor.Maui.Controls.HomeworkResultCard">
-    <Border Padding="22"
+    <Border Padding="18"
             BackgroundColor="{Binding CardColor, Source={x:Reference Root}}"
             Stroke="#F1E4D1"
             StrokeThickness="2">
         <Border.StrokeShape>
-            <RoundRectangle CornerRadius="24" />
+            <RoundRectangle CornerRadius="20" />
         </Border.StrokeShape>
-        <VerticalStackLayout Spacing="14">
+        <VerticalStackLayout Spacing="10">
             <Grid ColumnDefinitions="*,Auto">
-                <Label Text="{Binding QuestionNo, Source={x:Reference Root}}" FontSize="22" FontAttributes="Bold" TextColor="#1E293B" />
+                <Label Text="{Binding QuestionNo, Source={x:Reference Root}}" FontSize="18" FontAttributes="Bold" TextColor="#1E293B" />
                 <Border Grid.Column="1" Padding="12,6" BackgroundColor="#FFFFFF" StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <Label Text="{Binding StatusText, Source={x:Reference Root}}" FontSize="16" FontAttributes="Bold" TextColor="#EA580C" />
+                    <Label Text="{Binding StatusText, Source={x:Reference Root}}" FontSize="13" FontAttributes="Bold" TextColor="#EA580C" />
                 </Border>
             </Grid>
-            <Label Text="{Binding QuestionText, Source={x:Reference Root}}" FontSize="21" LineHeight="1.18" TextColor="#334155" />
-            <Label Text="{Binding DetailText, Source={x:Reference Root}}" FontSize="18" TextColor="#64748B" LineHeight="1.18" />
+            <Label Text="{Binding QuestionText, Source={x:Reference Root}}" FontSize="16" LineHeight="1.16" TextColor="#334155" />
+            <Label Text="{Binding DetailText, Source={x:Reference Root}}" FontSize="14" TextColor="#64748B" LineHeight="1.16" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-                <Button Text="查看讲解" FontSize="16" FontAttributes="Bold" HeightRequest="48" CornerRadius="16" BackgroundColor="#EFF6FF" TextColor="#2563EB" Command="{Binding ExplainCommand, Source={x:Reference Root}}" />
-                <Button Grid.Column="1" Text="加入错题本" FontSize="16" FontAttributes="Bold" HeightRequest="48" CornerRadius="16" BackgroundColor="#FFF1F2" TextColor="#E11D48" Command="{Binding AddWrongCommand, Source={x:Reference Root}}" />
-                <Button Grid.Column="2" Text="生成同类题" FontSize="16" FontAttributes="Bold" HeightRequest="48" CornerRadius="16" BackgroundColor="#F0FDFA" TextColor="#0F766E" Command="{Binding PracticeCommand, Source={x:Reference Root}}" />
+                <Button Text="查看讲解" FontSize="13" FontAttributes="Bold" HeightRequest="38" CornerRadius="13" BackgroundColor="#EFF6FF" TextColor="#2563EB" Command="{Binding ExplainCommand, Source={x:Reference Root}}" />
+                <Button Grid.Column="1" Text="加入错题本" FontSize="13" FontAttributes="Bold" HeightRequest="38" CornerRadius="13" BackgroundColor="#FFF1F2" TextColor="#E11D48" Command="{Binding AddWrongCommand, Source={x:Reference Root}}" />
+                <Button Grid.Column="2" Text="生成同类题" FontSize="13" FontAttributes="Bold" HeightRequest="38" CornerRadius="13" BackgroundColor="#F0FDFA" TextColor="#0F766E" Command="{Binding PracticeCommand, Source={x:Reference Root}}" />
             </Grid>
         </VerticalStackLayout>
     </Border>

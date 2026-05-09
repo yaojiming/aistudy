@@ -37,6 +37,8 @@ public class ApiClientService : IApiClientService
 
     private readonly HttpClient _httpClient;
     private readonly IAppSettingsService _settingsService;
+    private readonly SemaphoreSlim _configureLock = new(1, 1);
+    private bool _isConfigured;
 
     public ApiClientService(HttpClient httpClient, IAppSettingsService settingsService)
     {
@@ -52,12 +54,14 @@ public class ApiClientService : IApiClientService
     /// <returns>完整 Agent 响应。</returns>
     public async Task<AgentResponse> AskAsync(AgentRequest request, CancellationToken cancellationToken = default)
     {
-        await ConfigureHttpClientAsync(cancellationToken);
+        var options = await ConfigureHttpClientAsync(cancellationToken);
+        using var timeoutCts = CreateTimeoutTokenSource(options, cancellationToken);
+        var requestToken = timeoutCts.Token;
 
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync("/api/agent/ask", request, JsonOptions, cancellationToken);
-            return await ReadResponseAsync<AgentResponse>(response, cancellationToken);
+            using var response = await _httpClient.PostAsJsonAsync("/api/agent/ask", request, JsonOptions, requestToken);
+            return await ReadResponseAsync<AgentResponse>(response, requestToken);
         }
         catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -81,7 +85,9 @@ public class ApiClientService : IApiClientService
         Func<string, Task> onDelta,
         CancellationToken cancellationToken = default)
     {
-        await ConfigureHttpClientAsync(cancellationToken);
+        var options = await ConfigureHttpClientAsync(cancellationToken);
+        using var timeoutCts = CreateTimeoutTokenSource(options, cancellationToken);
+        var requestToken = timeoutCts.Token;
 
         try
         {
@@ -91,20 +97,20 @@ public class ApiClientService : IApiClientService
             };
 
             // ResponseHeadersRead 让客户端在响应头到达后立刻开始读流，不等待完整内容下载。
-            using var response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, requestToken);
             if (!response.IsSuccessStatusCode)
             {
-                var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
+                var errorText = await response.Content.ReadAsStringAsync(requestToken);
                 throw new InvalidOperationException($"流式请求失败：{(int)response.StatusCode} {errorText}");
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var stream = await response.Content.ReadAsStreamAsync(requestToken);
             using var reader = new StreamReader(stream);
             AgentResponse? finalResponse = null;
 
             while (!reader.EndOfStream)
             {
-                var line = await reader.ReadLineAsync(cancellationToken);
+                var line = await reader.ReadLineAsync(requestToken);
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -154,7 +160,9 @@ public class ApiClientService : IApiClientService
     /// <returns>后端媒体资源信息。</returns>
     public async Task<MediaUploadResultDto> UploadImageAsync(FileResult file, string resourceType, string userId, CancellationToken cancellationToken = default)
     {
-        await ConfigureHttpClientAsync(cancellationToken);
+        var options = await ConfigureHttpClientAsync(cancellationToken);
+        using var timeoutCts = CreateTimeoutTokenSource(options, cancellationToken);
+        var requestToken = timeoutCts.Token;
 
         try
         {
@@ -167,8 +175,8 @@ public class ApiClientService : IApiClientService
             content.Add(new StringContent(userId), "userId");
             content.Add(new StringContent("maui_android_tablet"), "sourceType");
 
-            using var response = await _httpClient.PostAsync("/api/media/upload-image", content, cancellationToken);
-            return await ReadResponseAsync<MediaUploadResultDto>(response, cancellationToken);
+            using var response = await _httpClient.PostAsync("/api/media/upload-image", content, requestToken);
+            return await ReadResponseAsync<MediaUploadResultDto>(response, requestToken);
         }
         catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -181,14 +189,47 @@ public class ApiClientService : IApiClientService
     }
 
     /// <summary>
-    /// 根据配置初始化 HttpClient 的 BaseAddress 和 Timeout。
+    /// 根据配置初始化 HttpClient 的 BaseAddress。HttpClient 发起请求后不能再修改 Timeout 等属性。
     /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
-    private async Task ConfigureHttpClientAsync(CancellationToken cancellationToken)
+    /// <returns>当前 API 配置，用于本次请求超时控制。</returns>
+    private async Task<ApiClientOptions> ConfigureHttpClientAsync(CancellationToken cancellationToken)
     {
         var options = await _settingsService.GetApiOptionsAsync(cancellationToken);
-        _httpClient.BaseAddress ??= new Uri(options.BaseUrl);
-        _httpClient.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 5, 120));
+
+        if (_isConfigured)
+        {
+            return options;
+        }
+
+        await _configureLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_isConfigured)
+            {
+                _httpClient.BaseAddress = new Uri(options.BaseUrl);
+                _isConfigured = true;
+            }
+        }
+        finally
+        {
+            _configureLock.Release();
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// 为每次请求创建独立超时令牌，避免修改复用 HttpClient 的 Timeout 属性。
+    /// </summary>
+    /// <param name="options">API 配置。</param>
+    /// <param name="cancellationToken">外部取消令牌。</param>
+    /// <returns>带超时的取消源。</returns>
+    private static CancellationTokenSource CreateTimeoutTokenSource(ApiClientOptions options, CancellationToken cancellationToken)
+    {
+        var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 5, 300)));
+        return timeoutCts;
     }
 
     /// <summary>

@@ -5,46 +5,46 @@
              x:Class="AiTutor.Maui.Views.WrongBookPage"
              Shell.NavBarIsVisible="False"
              Title="错题本">
-    <Grid BackgroundColor="#F8FAFC" RowDefinitions="104,*">
-        <Grid Padding="42,22" ColumnDefinitions="*,420,Auto" ColumnSpacing="18" BackgroundColor="#FFFFFF">
+    <Grid BackgroundColor="#F8FAFC" RowDefinitions="76,*">
+        <Grid Padding="30,12" ColumnDefinitions="*,340,Auto" ColumnSpacing="14" BackgroundColor="#FFFFFF">
             <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                <Label Text="错题本" FontSize="32" FontAttributes="Bold" TextColor="#1E293B" />
-                <Label Text="按学科、掌握状态和日期筛选错题" FontSize="16" TextColor="#94A3B8" />
+                <Label Text="错题本" FontSize="24" FontAttributes="Bold" TextColor="#1E293B" />
+                <Label Text="按学科、掌握状态和日期筛选错题" FontSize="13" TextColor="#94A3B8" />
             </VerticalStackLayout>
-            <Border Grid.Column="1" Padding="22,0" BackgroundColor="#F8FAFC" Stroke="#EEF2F7" VerticalOptions="Center" HeightRequest="58">
+            <Border Grid.Column="1" Padding="18,0" BackgroundColor="#F8FAFC" Stroke="#EEF2F7" VerticalOptions="Center" HeightRequest="44">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="22" />
+                    <RoundRectangle CornerRadius="16" />
                 </Border.StrokeShape>
-                <Label Text="搜索知识点或题目内容..." FontSize="18" TextColor="#94A3B8" VerticalTextAlignment="Center" />
+                <Label Text="搜索知识点或题目内容..." FontSize="14" TextColor="#94A3B8" VerticalTextAlignment="Center" />
             </Border>
-            <Button Grid.Column="2" Text="手动录入" IsEnabled="False" FontSize="20" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#EEF2FF" TextColor="#A5B4FC" />
+            <Button Grid.Column="2" Text="手动录入" IsEnabled="False" FontSize="15" FontAttributes="Bold" WidthRequest="112" HeightRequest="44" CornerRadius="16" BackgroundColor="#EEF2FF" TextColor="#A5B4FC" />
         </Grid>
 
-        <Grid Grid.Row="1" ColumnDefinitions="320,*" ColumnSpacing="0">
+        <Grid Grid.Row="1" ColumnDefinitions="260,*" ColumnSpacing="0">
             <ScrollView BackgroundColor="#FFFFFF">
-                <VerticalStackLayout Padding="36,42" Spacing="36">
-                    <VerticalStackLayout Spacing="16">
-                        <Label Text="学科筛选" FontSize="24" FontAttributes="Bold" TextColor="#1E293B" />
-                        <Picker ItemsSource="{Binding SubjectFilters}" SelectedItem="{Binding SelectedSubject}" FontSize="21" BackgroundColor="#F8FAFC" />
+                <VerticalStackLayout Padding="26,30" Spacing="24">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="学科筛选" FontSize="18" FontAttributes="Bold" TextColor="#1E293B" />
+                        <Picker ItemsSource="{Binding SubjectFilters}" SelectedItem="{Binding SelectedSubject}" FontSize="15" BackgroundColor="#F8FAFC" />
                     </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="16">
-                        <Label Text="掌握状态" FontSize="24" FontAttributes="Bold" TextColor="#1E293B" />
-                        <Picker ItemsSource="{Binding MasteryFilters}" SelectedItem="{Binding SelectedMasteryStatus}" FontSize="21" BackgroundColor="#F8FAFC" />
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="掌握状态" FontSize="18" FontAttributes="Bold" TextColor="#1E293B" />
+                        <Picker ItemsSource="{Binding MasteryFilters}" SelectedItem="{Binding SelectedMasteryStatus}" FontSize="15" BackgroundColor="#F8FAFC" />
                     </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="16">
-                        <Label Text="日期" FontSize="24" FontAttributes="Bold" TextColor="#1E293B" />
-                        <DatePicker Date="{Binding SelectedDate}" FontSize="21" BackgroundColor="#F8FAFC" />
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="日期" FontSize="18" FontAttributes="Bold" TextColor="#1E293B" />
+                        <DatePicker Date="{Binding SelectedDate}" FontSize="15" BackgroundColor="#F8FAFC" />
                     </VerticalStackLayout>
-                    <Button Text="刷新" FontSize="21" FontAttributes="Bold" HeightRequest="64" CornerRadius="22" BackgroundColor="#2563EB" TextColor="#FFFFFF" />
+                    <Button Text="刷新" FontSize="16" FontAttributes="Bold" HeightRequest="46" CornerRadius="16" BackgroundColor="#2563EB" TextColor="#FFFFFF" />
                 </VerticalStackLayout>
             </ScrollView>
 
-            <CollectionView Grid.Column="1" ItemsSource="{Binding WrongQuestions}" Margin="42">
+            <CollectionView Grid.Column="1" ItemsSource="{Binding WrongQuestions}" Margin="30">
                 <CollectionView.EmptyView>
                     <controls:EmptyStateView TitleText="没有错题" DescriptionText="做得不错，继续保持。" IconText="✓" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemsLayout>
-                    <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="24" VerticalItemSpacing="24" />
+                    <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="18" VerticalItemSpacing="18" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
                     <DataTemplate>

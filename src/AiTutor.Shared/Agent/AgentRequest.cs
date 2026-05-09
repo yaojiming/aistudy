@@ -21,6 +21,11 @@ public class AgentRequest
 
     public string? QuestionText { get; set; }
 
+    /// <summary>
+    /// 当前会话最近几轮对话摘要。用于让模型理解“3”“不会”“为什么”等短回复的上下文。
+    /// </summary>
+    public string? ConversationContext { get; set; }
+
     public string? ImageUrl { get; set; }
 
     public string? AudioUrl { get; set; }

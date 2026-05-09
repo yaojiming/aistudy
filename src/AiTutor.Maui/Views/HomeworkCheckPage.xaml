@@ -5,24 +5,24 @@
              x:Class="AiTutor.Maui.Views.HomeworkCheckPage"
              Shell.NavBarIsVisible="False"
              Title="作业检查">
-    <Grid BackgroundColor="#F8FAFC" RowDefinitions="104,*">
-        <Grid Padding="42,22" ColumnDefinitions="*,190,190,220,Auto,Auto" ColumnSpacing="18" BackgroundColor="#FFFFFF">
+    <Grid BackgroundColor="#F8FAFC" RowDefinitions="76,*">
+        <Grid Padding="30,12" ColumnDefinitions="*,158,158,184,Auto,Auto" ColumnSpacing="14" BackgroundColor="#FFFFFF">
             <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                <Label Text="作业检查" FontSize="32" FontAttributes="Bold" TextColor="#1E293B" />
-                <Label Text="整页作业上传，右侧逐题显示检查结果" FontSize="16" TextColor="#94A3B8" />
+                <Label Text="作业检查" FontSize="24" FontAttributes="Bold" TextColor="#1E293B" />
+                <Label Text="整页作业上传，右侧逐题显示检查结果" FontSize="13" TextColor="#94A3B8" />
             </VerticalStackLayout>
-            <Picker Grid.Column="1" ItemsSource="{Binding Grades}" SelectedItem="{Binding SelectedGrade}" FontSize="20" BackgroundColor="#F8FAFC" />
-            <Picker Grid.Column="2" ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}" FontSize="20" BackgroundColor="#F8FAFC" />
-            <Picker Grid.Column="3" ItemsSource="{Binding ThinkingModes}" SelectedItem="{Binding SelectedThinkingMode}" FontSize="20" BackgroundColor="#F8FAFC" />
-            <Button Grid.Column="4" Text="选择图片" FontSize="20" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#2563EB" TextColor="#FFFFFF" Command="{Binding PickImageCommand}" />
-            <Button Grid.Column="5" Text="拍照" FontSize="20" FontAttributes="Bold" WidthRequest="120" HeightRequest="60" CornerRadius="22" BackgroundColor="#EA580C" TextColor="#FFFFFF" Command="{Binding CapturePhotoCommand}" />
+            <Picker Grid.Column="1" ItemsSource="{Binding Grades}" SelectedItem="{Binding SelectedGrade}" FontSize="15" BackgroundColor="#F8FAFC" />
+            <Picker Grid.Column="2" ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}" FontSize="15" BackgroundColor="#F8FAFC" />
+            <Picker Grid.Column="3" ItemsSource="{Binding ThinkingModes}" SelectedItem="{Binding SelectedThinkingMode}" FontSize="15" BackgroundColor="#F8FAFC" />
+            <Button Grid.Column="4" Text="选择图片" FontSize="15" FontAttributes="Bold" WidthRequest="116" HeightRequest="44" CornerRadius="16" BackgroundColor="#2563EB" TextColor="#FFFFFF" Command="{Binding PickImageCommand}" />
+            <Button Grid.Column="5" Text="拍照" FontSize="15" FontAttributes="Bold" WidthRequest="92" HeightRequest="44" CornerRadius="16" BackgroundColor="#EA580C" TextColor="#FFFFFF" Command="{Binding CapturePhotoCommand}" />
         </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="3*,2*" ColumnSpacing="0">
-            <Grid Padding="48" BackgroundColor="#E2E8F0">
-                <Border Padding="18" BackgroundColor="#FFFFFF" Stroke="#CBD5E1">
+            <Grid Padding="30" BackgroundColor="#E2E8F0">
+                <Border Padding="14" BackgroundColor="#FFFFFF" Stroke="#CBD5E1">
                     <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="48" />
+                        <RoundRectangle CornerRadius="34" />
                     </Border.StrokeShape>
                     <Grid>
                         <Image Source="{Binding PreviewImage}" Aspect="AspectFit" />
@@ -34,16 +34,16 @@
                 </Border>
             </Grid>
 
-            <Grid Grid.Column="1" Padding="42" RowDefinitions="Auto,Auto,*" RowSpacing="20" BackgroundColor="#FFFFFF">
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14">
+            <Grid Grid.Column="1" Padding="28" RowDefinitions="Auto,Auto,*" RowSpacing="14" BackgroundColor="#FFFFFF">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4">
-                        <Label Text="批改结果" FontSize="32" FontAttributes="Bold" TextColor="#1E293B" />
-                        <Label Text="错题使用温和高亮，不刺眼" FontSize="16" TextColor="#94A3B8" />
+                        <Label Text="批改结果" FontSize="24" FontAttributes="Bold" TextColor="#1E293B" />
+                        <Label Text="错题使用温和高亮，不刺眼" FontSize="13" TextColor="#94A3B8" />
                     </VerticalStackLayout>
-                    <Button Grid.Column="1" Text="只看错题" FontSize="19" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#FFF7ED" TextColor="#EA580C" Command="{Binding ToggleWrongOnlyCommand}" />
-                    <Button Grid.Column="2" Text="上传检查" FontSize="19" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#EA580C" TextColor="#FFFFFF" Command="{Binding SubmitCommand}" />
+                    <Button Grid.Column="1" Text="只看错题" FontSize="15" FontAttributes="Bold" WidthRequest="110" HeightRequest="44" CornerRadius="16" BackgroundColor="#FFF7ED" TextColor="#EA580C" Command="{Binding ToggleWrongOnlyCommand}" />
+                    <Button Grid.Column="2" Text="上传检查" FontSize="15" FontAttributes="Bold" WidthRequest="110" HeightRequest="44" CornerRadius="16" BackgroundColor="#EA580C" TextColor="#FFFFFF" Command="{Binding SubmitCommand}" />
                 </Grid>
-                <ProgressBar Grid.Row="1" Progress="{Binding UploadProgress}" ProgressColor="#EA580C" BackgroundColor="#E2E8F0" HeightRequest="10" />
+                <ProgressBar Grid.Row="1" Progress="{Binding UploadProgress}" ProgressColor="#EA580C" BackgroundColor="#E2E8F0" HeightRequest="6" />
                 <CollectionView Grid.Row="2" ItemsSource="{Binding HomeworkItems}">
                     <CollectionView.EmptyView>
                         <controls:EmptyStateView TitleText="暂无检查结果" DescriptionText="上传作业图片后，这里会逐题展示。" IconText="作" />

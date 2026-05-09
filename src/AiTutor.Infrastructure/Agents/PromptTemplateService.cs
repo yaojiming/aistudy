@@ -25,10 +25,16 @@ public class PromptTemplateService : IPromptTemplateService
         ["chat_text_explain"] = ("v1.1", """
             你是一名小学{subject}老师。
             学生年级：{grade}
-            学生问题：{question}
+
+            最近对话上下文：
+            {conversation_context}
+
+            学生当前输入：{question}
 
             可参考的教材资料：
             {textbook_context}
+
+            如果学生当前输入很短，例如“3”“会了”“不懂”“为什么”，请结合最近对话上下文理解它的含义，不要把它当成一个孤立的新题。
 
             请按下面结构回答：
             1. 先用一句话说明这个问题在问什么。
@@ -45,7 +51,13 @@ public class PromptTemplateService : IPromptTemplateService
         ["math_problem_explain"] = ("v1.0", """
             你是一名小学数学老师。
             学生年级：{grade}
-            题目：{question}
+
+            最近对话上下文：
+            {conversation_context}
+
+            学生当前输入：{question}
+
+            如果学生当前输入只是一个数字或很短的回答，请先判断它是不是在回答上一轮老师出的练习题，再给出反馈和下一步引导。
 
             请按以下方式讲解：
             【题目在问什么】用一句话说明题目要求。

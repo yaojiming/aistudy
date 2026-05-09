@@ -65,6 +65,7 @@ public class AgentService : IAgentService
 
         var stopwatch = Stopwatch.StartNew();
         var session = await GetOrCreateSessionAsync(request, cancellationToken);
+        request.ConversationContext = await BuildConversationContextAsync(request, session.Id, cancellationToken);
         var questionRecord = CreateQuestionRecord(request, session.Id);
 
         _dbContext.QuestionRecords.Add(questionRecord);
@@ -161,6 +162,7 @@ public class AgentService : IAgentService
 
         var stopwatch = Stopwatch.StartNew();
         var session = await GetOrCreateSessionAsync(request, cancellationToken);
+        request.ConversationContext = await BuildConversationContextAsync(request, session.Id, cancellationToken);
         var questionRecord = CreateQuestionRecord(request, session.Id);
 
         _dbContext.QuestionRecords.Add(questionRecord);
@@ -312,6 +314,51 @@ public class AgentService : IAgentService
         _dbContext.LearningSessions.Add(session);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return session;
+    }
+
+    /// <summary>
+    /// 构造同一会话的最近上下文，优先使用前端传入的上下文，缺失时从 SessionMessage 表恢复。
+    /// </summary>
+    /// <param name="request">当前 Agent 请求。</param>
+    /// <param name="sessionId">当前学习会话 Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>可放入 Prompt 的最近对话文本。</returns>
+    /// <remarks>
+    /// 调用链：AskAsync / StreamAskAsync -> GetOrCreateSessionAsync 后、保存当前用户消息前。
+    /// 这样“3”“不会”“为什么”等短输入可以结合上一轮 AI 提问理解；新会话没有旧 SessionId，自然不会带历史。
+    /// </remarks>
+    private async Task<string?> BuildConversationContextAsync(AgentRequest request, string sessionId, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(request.ConversationContext))
+        {
+            return request.ConversationContext;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.SessionId))
+        {
+            return null;
+        }
+
+        var messages = await _dbContext.SessionMessages
+            .AsNoTracking()
+            .Where(x => x.SessionId == sessionId && x.ContentType == MessageContentType.Text && !string.IsNullOrWhiteSpace(x.TextContent))
+            .OrderByDescending(x => x.CreatedTime)
+            .Take(8)
+            .OrderBy(x => x.CreatedTime)
+            .ToListAsync(cancellationToken);
+
+        if (messages.Count == 0)
+        {
+            return null;
+        }
+
+        var lines = messages.Select(message =>
+        {
+            var role = message.Role == MessageRole.Assistant ? "AI老师" : "学生";
+            return $"{role}：{TrimForContext(message.TextContent ?? string.Empty)}";
+        });
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     /// <summary>
@@ -564,6 +611,17 @@ public class AgentService : IAgentService
     private static int? EstimateTokens(string? text)
     {
         return string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 2);
+    }
+
+    /// <summary>
+    /// 限制单条历史消息长度，避免上下文过长影响模型响应速度。
+    /// </summary>
+    /// <param name="text">原始历史消息。</param>
+    /// <returns>适合放入 Prompt 的短文本。</returns>
+    private static string TrimForContext(string text)
+    {
+        var normalized = text.Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Trim();
+        return normalized.Length > 500 ? normalized[..500] + "..." : normalized;
     }
 
     private static IEnumerable<string> SplitForStreaming(string text)
