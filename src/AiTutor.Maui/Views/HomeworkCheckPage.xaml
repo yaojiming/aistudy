@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
+             x:Class="AiTutor.Maui.Views.HomeworkCheckPage"
+             Shell.NavBarIsVisible="False"
+             Title="作业检查">
+    <Grid BackgroundColor="#F8FAFC" RowDefinitions="104,*">
+        <Grid Padding="42,22" ColumnDefinitions="*,190,190,220,Auto,Auto" ColumnSpacing="18" BackgroundColor="#FFFFFF">
+            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                <Label Text="作业检查" FontSize="32" FontAttributes="Bold" TextColor="#1E293B" />
+                <Label Text="整页作业上传，右侧逐题显示检查结果" FontSize="16" TextColor="#94A3B8" />
+            </VerticalStackLayout>
+            <Picker Grid.Column="1" ItemsSource="{Binding Grades}" SelectedItem="{Binding SelectedGrade}" FontSize="20" BackgroundColor="#F8FAFC" />
+            <Picker Grid.Column="2" ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}" FontSize="20" BackgroundColor="#F8FAFC" />
+            <Picker Grid.Column="3" ItemsSource="{Binding ThinkingModes}" SelectedItem="{Binding SelectedThinkingMode}" FontSize="20" BackgroundColor="#F8FAFC" />
+            <Button Grid.Column="4" Text="选择图片" FontSize="20" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#2563EB" TextColor="#FFFFFF" Command="{Binding PickImageCommand}" />
+            <Button Grid.Column="5" Text="拍照" FontSize="20" FontAttributes="Bold" WidthRequest="120" HeightRequest="60" CornerRadius="22" BackgroundColor="#EA580C" TextColor="#FFFFFF" Command="{Binding CapturePhotoCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="3*,2*" ColumnSpacing="0">
+            <Grid Padding="48" BackgroundColor="#E2E8F0">
+                <Border Padding="18" BackgroundColor="#FFFFFF" Stroke="#CBD5E1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="48" />
+                    </Border.StrokeShape>
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Aspect="AspectFit" />
+                        <controls:EmptyStateView TitleText="准备扫描作业"
+                                                 DescriptionText="选择或拍摄整页作业"
+                                                 IconText="检"
+                                                 IsVisible="{Binding HasPreview, Converter={StaticResource InvertedBoolConverter}}" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Column="1" Padding="42" RowDefinitions="Auto,Auto,*" RowSpacing="20" BackgroundColor="#FFFFFF">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="批改结果" FontSize="32" FontAttributes="Bold" TextColor="#1E293B" />
+                        <Label Text="错题使用温和高亮，不刺眼" FontSize="16" TextColor="#94A3B8" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="只看错题" FontSize="19" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#FFF7ED" TextColor="#EA580C" Command="{Binding ToggleWrongOnlyCommand}" />
+                    <Button Grid.Column="2" Text="上传检查" FontSize="19" FontAttributes="Bold" WidthRequest="142" HeightRequest="60" CornerRadius="22" BackgroundColor="#EA580C" TextColor="#FFFFFF" Command="{Binding SubmitCommand}" />
+                </Grid>
+                <ProgressBar Grid.Row="1" Progress="{Binding UploadProgress}" ProgressColor="#EA580C" BackgroundColor="#E2E8F0" HeightRequest="10" />
+                <CollectionView Grid.Row="2" ItemsSource="{Binding HomeworkItems}">
+                    <CollectionView.EmptyView>
+                        <controls:EmptyStateView TitleText="暂无检查结果" DescriptionText="上传作业图片后，这里会逐题展示。" IconText="作" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <controls:HomeworkResultCard Margin="0,0,0,16"
+                                                         QuestionNo="{Binding QuestionNo}"
+                                                         StatusText="{Binding StatusText}"
+                                                         QuestionText="{Binding QuestionText}"
+                                                         DetailText="{Binding DetailText}"
+                                                         CardColor="{Binding CardColor}"
+                                                         ExplainCommand="{Binding BindingContext.ExplainCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                         AddWrongCommand="{Binding BindingContext.AddWrongCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                         PracticeCommand="{Binding BindingContext.PracticeCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Grid>
+        <controls:LoadingOverlay Grid.RowSpan="2" IsLoading="{Binding IsBusy}" LoadingText="AI老师正在检查..." />
+    </Grid>
+</ContentPage>

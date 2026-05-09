@@ -18,15 +18,20 @@ builder.Services.AddAiTutorInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+var swaggerEnabled = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Swagger:Enabled");
+if (swaggerEnabled)
 {
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+var httpsRedirectionEnabled = builder.Configuration.GetValue<bool>("HttpsRedirection:Enabled");
+if (httpsRedirectionEnabled)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthorization();
 

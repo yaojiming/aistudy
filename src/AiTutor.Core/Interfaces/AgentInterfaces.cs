@@ -9,6 +9,8 @@ namespace AiTutor.Core.Interfaces;
 public interface IAgentService
 {
     Task<AgentResponse> AskAsync(AgentRequest request, CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<AgentStreamChunkDto> StreamAskAsync(AgentRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -30,6 +32,14 @@ public interface IAgent
 }
 
 /// <summary>
+/// 支持真实流式输出的 Agent 接口。
+/// </summary>
+public interface IStreamingAgent : IAgent
+{
+    IAsyncEnumerable<AgentStreamChunkDto> StreamExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// 文本模型提供方接口。
 /// </summary>
 public interface ITextModelProvider
@@ -39,6 +49,8 @@ public interface ITextModelProvider
     string ModelName { get; }
 
     Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<string> GenerateStreamAsync(string prompt, string? thinkingMode = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -51,6 +63,8 @@ public interface IVisionModelProvider
     string ModelName { get; }
 
     Task<string> AnalyzeImageAsync(string imageUrl, string prompt, CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<string> AnalyzeImageStreamAsync(string imageUrl, string prompt, string? thinkingMode = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -111,4 +125,13 @@ public interface IAgentRouteLogService
 public interface IMediaResourceService
 {
     Task<MediaResource?> FindByUrlAsync(string? url, CancellationToken cancellationToken = default);
+
+    Task<MediaUploadResultDto> SaveImageAsync(
+        Stream content,
+        string fileName,
+        string? mimeType,
+        string? resourceType,
+        string? userId,
+        string? sourceType,
+        CancellationToken cancellationToken = default);
 }

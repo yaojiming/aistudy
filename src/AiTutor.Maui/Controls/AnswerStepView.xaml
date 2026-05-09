@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Name="Root"
+             x:Class="AiTutor.Maui.Controls.AnswerStepView">
+    <Border Padding="18" BackgroundColor="#FFFFFF" Stroke="#DDE7E2">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="18" />
+        </Border.StrokeShape>
+        <Grid ColumnDefinitions="46,*" ColumnSpacing="14">
+            <Border BackgroundColor="#E8F2EF" HeightRequest="42" WidthRequest="42" VerticalOptions="Start">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="21" />
+                </Border.StrokeShape>
+                <Label Text="{Binding StepNo, Source={x:Reference Root}}" FontSize="18" FontAttributes="Bold" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" TextColor="#2F7D7E" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                <Label Text="{Binding TitleText, Source={x:Reference Root}}" FontSize="20" FontAttributes="Bold" TextColor="#17324D" />
+                <Label Text="{Binding BodyText, Source={x:Reference Root}}" FontSize="18" LineHeight="1.2" TextColor="#526170" />
+            </VerticalStackLayout>
+        </Grid>
+    </Border>
+</ContentView>

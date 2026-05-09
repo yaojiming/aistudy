@@ -17,6 +17,8 @@ public class AgentRequest
 
     public string Mode { get; set; } = "ask";
 
+    public string? ThinkingMode { get; set; } = "standard";
+
     public string? QuestionText { get; set; }
 
     public string? ImageUrl { get; set; }

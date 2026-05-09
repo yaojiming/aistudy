@@ -148,6 +148,137 @@ public class AgentService : IAgentService
         return response;
     }
 
+    public async IAsyncEnumerable<AgentStreamChunkDto> StreamAskAsync(
+        AgentRequest request,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // 流式入口仍然先创建会话和问题记录，确保 delta 输出前数据主线已经落库。
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            yield return new AgentStreamChunkDto { Type = "error", ErrorMessage = "UserId 不能为空。" };
+            yield break;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var session = await GetOrCreateSessionAsync(request, cancellationToken);
+        var questionRecord = CreateQuestionRecord(request, session.Id);
+
+        _dbContext.QuestionRecords.Add(questionRecord);
+        _dbContext.SessionMessages.Add(CreateUserMessage(request, session.Id));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var route = _agentRouter.Route(request);
+        await _routeLogService.SaveAsync(new AgentRouteLog
+        {
+            UserId = request.UserId,
+            SessionId = session.Id,
+            QuestionRecordId = questionRecord.Id,
+            InputType = ParseInputType(request.InputType),
+            QuestionMode = ParseQuestionMode(request.Mode),
+            SelectedAgent = route.AgentName,
+            SelectedModelProvider = ParseModelProvider(route.ModelProvider),
+            SelectedModelName = route.ModelName,
+            RouteReason = route.RouteReason
+        }, cancellationToken);
+
+        var agent = _agents.FirstOrDefault(x => string.Equals(x.Name, route.AgentName, StringComparison.OrdinalIgnoreCase));
+        if (agent is null)
+        {
+            yield return new AgentStreamChunkDto { Type = "error", ErrorMessage = $"未找到 Agent：{route.AgentName}" };
+            yield break;
+        }
+
+        AgentResponse? finalResponse = null;
+        Exception? modelException = null;
+
+        if (agent is IStreamingAgent streamingAgent)
+        {
+            // 支持流式的 Agent 会直接连接真实模型 Provider 的 streaming 能力。
+            await foreach (var chunk in streamingAgent.StreamExecuteAsync(request, route, cancellationToken))
+            {
+                if (chunk.Type == "final")
+                {
+                    finalResponse = chunk.FinalResponse;
+                    continue;
+                }
+
+                yield return chunk;
+            }
+        }
+        else
+        {
+            // 旧 Agent 没有实现流式接口时，退化为完整响应后分段输出，保证接口兼容。
+            try
+            {
+                finalResponse = await agent.ExecuteAsync(request, route, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                modelException = ex;
+            }
+
+            if (finalResponse is not null)
+            {
+                foreach (var delta in SplitForStreaming(finalResponse.AnswerText))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    yield return new AgentStreamChunkDto { Type = "delta", Text = delta };
+                    await Task.Delay(30, cancellationToken);
+                }
+            }
+        }
+
+        stopwatch.Stop();
+        finalResponse ??= new AgentResponse
+        {
+            SessionId = session.Id,
+            QuestionRecordId = questionRecord.Id,
+            OutputType = "text",
+            AnswerText = "这次 Agent 流式调用失败了，请稍后再试。",
+            AgentName = route.AgentName,
+            ModelUsed = route.ModelName,
+            RouteReason = route.RouteReason
+        };
+
+        finalResponse.SessionId = session.Id;
+        finalResponse.QuestionRecordId = questionRecord.Id;
+        finalResponse.DurationMs = (int)stopwatch.ElapsedMilliseconds;
+
+        var answerRecord = CreateAnswerRecord(request, questionRecord.Id, finalResponse);
+        _dbContext.AnswerRecords.Add(answerRecord);
+        _dbContext.SessionMessages.Add(CreateAssistantMessage(request.UserId, session.Id, finalResponse));
+        session.UpdatedTime = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        finalResponse.AnswerRecordId = answerRecord.Id;
+
+        if (finalResponse.HomeworkCheckResult is not null)
+        {
+            await _homeworkCheckService.SaveItemsAsync(questionRecord.Id, request.UserId, request.Subject, request.Grade, finalResponse.HomeworkCheckResult, cancellationToken);
+        }
+
+        await _modelCallLogService.SaveAsync(new ModelCallLog
+        {
+            UserId = request.UserId,
+            SessionId = session.Id,
+            QuestionRecordId = questionRecord.Id,
+            AgentName = route.AgentName,
+            ModelProvider = ParseModelProvider(route.ModelProvider),
+            ModelName = route.ModelName,
+            RequestType = request.Mode,
+            PromptText = request.QuestionText ?? request.ImageUrl ?? request.AudioUrl,
+            ResponseText = finalResponse.AnswerText,
+            InputTokens = EstimateTokens(request.QuestionText),
+            OutputTokens = EstimateTokens(finalResponse.AnswerText),
+            DurationMs = finalResponse.DurationMs,
+            IsSuccess = modelException is null,
+            ErrorMessage = modelException?.Message
+        }, cancellationToken);
+
+        // final 事件携带完整响应，前端用它展示结构化结果，后端也在这里保存回答与日志。
+        yield return new AgentStreamChunkDto { Type = "final", FinalResponse = finalResponse };
+    }
+
     /// <summary>
     /// 创建或复用学习会话。
     /// </summary>
@@ -433,6 +564,14 @@ public class AgentService : IAgentService
     private static int? EstimateTokens(string? text)
     {
         return string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 2);
+    }
+
+    private static IEnumerable<string> SplitForStreaming(string text)
+    {
+        for (var index = 0; index < text.Length; index += 12)
+        {
+            yield return text.Substring(index, Math.Min(12, text.Length - index));
+        }
     }
 
     /// <summary>

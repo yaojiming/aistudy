@@ -39,4 +39,27 @@ public class MockVisionModelProvider : IVisionModelProvider
 
         return Task.FromResult(answer);
     }
+
+    /// <summary>
+    /// Mock 视觉模型的流式输出，用于开发环境验证图片问答流式链路。
+    /// </summary>
+    /// <param name="imageUrl">图片路径。</param>
+    /// <param name="prompt">视觉 Prompt。</param>
+    /// <param name="thinkingMode">思考模式，占位保留。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>模拟增量文本片段。</returns>
+    public async IAsyncEnumerable<string> AnalyzeImageStreamAsync(
+        string imageUrl,
+        string prompt,
+        string? thinkingMode = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var answer = await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
+        for (var index = 0; index < answer.Length; index += 12)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(60, cancellationToken);
+            yield return answer.Substring(index, Math.Min(12, answer.Length - index));
+        }
+    }
 }

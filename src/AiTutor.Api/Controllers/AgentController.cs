@@ -1,6 +1,7 @@
 using AiTutor.Core.Interfaces;
 using AiTutor.Shared.Agent;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace AiTutor.Api.Controllers;
 
@@ -40,6 +41,24 @@ public class AgentController : ControllerBase
     {
         var response = await _agentService.AskAsync(request, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// 统一 AI 提问流式入口，使用 Server-Sent Events 逐段输出。
+    /// </summary>
+    [HttpPost("ask-stream")]
+    public async Task AskStream([FromBody] AgentRequest request, CancellationToken cancellationToken)
+    {
+        Response.ContentType = "text/event-stream; charset=utf-8";
+        Response.Headers.CacheControl = "no-cache";
+
+        await foreach (var chunk in _agentService.StreamAskAsync(request, cancellationToken))
+        {
+            var eventName = chunk.Type == "final" ? "final" : chunk.Type == "error" ? "error" : "delta";
+            await Response.WriteAsync($"event: {eventName}\n", cancellationToken);
+            await Response.WriteAsync($"data: {JsonSerializer.Serialize(chunk)}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
     }
 
     /// <summary>

@@ -35,4 +35,38 @@ public class MockTextModelProvider : ITextModelProvider
 
         return Task.FromResult(answer);
     }
+
+    /// <summary>
+    /// Mock 文本模型的流式输出，用于开发环境验证端到端流式链路。
+    /// </summary>
+    /// <param name="prompt">渲染后的 Prompt。</param>
+    /// <param name="thinkingMode">思考模式，占位保留。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>模拟增量文本片段。</returns>
+    public async IAsyncEnumerable<string> GenerateStreamAsync(
+        string prompt,
+        string? thinkingMode = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var answer = await GenerateAsync(prompt, cancellationToken);
+        foreach (var chunk in SplitForStreaming(answer))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(60, cancellationToken);
+            yield return chunk;
+        }
+    }
+
+    /// <summary>
+    /// 将完整 Mock 文本切成小片段，模拟模型逐段输出。
+    /// </summary>
+    /// <param name="text">完整文本。</param>
+    /// <returns>文本片段序列。</returns>
+    private static IEnumerable<string> SplitForStreaming(string text)
+    {
+        for (var index = 0; index < text.Length; index += 12)
+        {
+            yield return text.Substring(index, Math.Min(12, text.Length - index));
+        }
+    }
 }

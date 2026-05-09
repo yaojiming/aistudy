@@ -3,12 +3,13 @@
     x:Class="AiTutor.Maui.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:AiTutor.Maui"
-    Title="AiTutor.Maui">
+    xmlns:views="clr-namespace:AiTutor.Maui.Views"
+    Shell.NavBarIsVisible="False"
+    Title="AiTutor">
 
     <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+        Title="首页"
+        ContentTemplate="{DataTemplate views:HomePage}"
+        Route="home" />
 
 </Shell>

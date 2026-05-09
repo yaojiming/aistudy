@@ -6,12 +6,7 @@ namespace AiTutor.Infrastructure.Agents;
 /// <summary>
 /// 图片讲题 Agent，负责把图片题目交给视觉模型识别并生成讲解。
 /// </summary>
-/// <remarks>
-/// 调用链：AgentService -> AgentRouter 选择 VisionAgent -> VisionAgent -> PromptTemplateService -> IVisionModelProvider。
-/// Phase 3 后 IVisionModelProvider 可由 DI 切换为 MockVisionModelProvider 或 GlmVisionModelProvider。
-/// 本类只负责模型调用和响应组装，图片资源保存与 QuestionRecord 保存由 AgentService 或后续 MediaResourceService 完成。
-/// </remarks>
-public class VisionAgent : IAgent
+public class VisionAgent : IStreamingAgent
 {
     private readonly IVisionModelProvider _visionProvider;
     private readonly IPromptTemplateService _promptTemplateService;
@@ -25,29 +20,64 @@ public class VisionAgent : IAgent
     public string Name => "VisionAgent";
 
     /// <summary>
-    /// 执行图片讲题流程。
+    /// 执行非流式图片讲题流程，供普通 Agent 接口使用。
     /// </summary>
-    /// <param name="request">包含 ImageUrl 的图片提问请求。</param>
-    /// <param name="route">图片讲题路由结果。</param>
+    /// <param name="request">包含图片路径的 Agent 请求。</param>
+    /// <param name="route">Agent 路由结果。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>包含识别说明、解题步骤和建议动作的 AgentResponse。</returns>
-    /// <remarks>
-    /// 代码逻辑：
-    /// 1. 使用 vision_question_explain 模板生成视觉模型 Prompt；
-    /// 2. 调用当前注入的视觉模型 Provider；
-    /// 3. 把模型文本转换为统一 AgentResponse；
-    /// 4. 保留 AnswerJson 示例结构，方便 Swagger 和 MAUI 后续按结构展示。
-    /// </remarks>
+    /// <returns>完整图片讲题响应。</returns>
     public async Task<AgentResponse> ExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default)
     {
-        var prompt = _promptTemplateService.Render("vision_question_explain", new Dictionary<string, string?>
+        var answer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), cancellationToken);
+        var response = CreateResponse(route, answer);
+        return response;
+    }
+
+    /// <summary>
+    /// 执行真实流式图片讲题流程，逐段返回视觉模型输出。
+    /// </summary>
+    /// <param name="request">包含图片路径与 ThinkingMode 的 Agent 请求。</param>
+    /// <param name="route">Agent 路由结果。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>delta 文本片段和最终结构化响应。</returns>
+    public async IAsyncEnumerable<AgentStreamChunkDto> StreamExecuteAsync(
+        AgentRequest request,
+        AgentRouteResult route,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var answerText = string.Empty;
+        await foreach (var delta in _visionProvider.AnalyzeImageStreamAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), request.ThinkingMode, cancellationToken))
+        {
+            answerText += delta;
+            yield return new AgentStreamChunkDto { Type = "delta", Text = delta };
+        }
+
+        yield return new AgentStreamChunkDto { Type = "final", FinalResponse = CreateResponse(route, answerText) };
+    }
+
+    /// <summary>
+    /// 渲染图片讲题 Prompt。
+    /// </summary>
+    /// <param name="request">图片讲题请求。</param>
+    /// <returns>渲染后的 Prompt。</returns>
+    private string BuildPrompt(AgentRequest request)
+    {
+        return _promptTemplateService.Render("vision_question_explain", new Dictionary<string, string?>
         {
             ["imageUrl"] = request.ImageUrl,
             ["subject"] = request.Subject,
             ["grade"] = request.Grade
         });
+    }
 
-        var answer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, prompt, cancellationToken);
+    /// <summary>
+    /// 组装图片讲题响应，并保留前端可展示的结构化示例字段。
+    /// </summary>
+    /// <param name="route">Agent 路由结果。</param>
+    /// <param name="answer">模型输出文本。</param>
+    /// <returns>统一 AgentResponse。</returns>
+    private static AgentResponse CreateResponse(AgentRouteResult route, string answer)
+    {
         var response = ResponseFactory.Create(route, answer, canAddToWrongBook: true);
         response.AnswerJson = new
         {

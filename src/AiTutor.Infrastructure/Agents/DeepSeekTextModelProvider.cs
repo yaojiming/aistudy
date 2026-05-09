@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using AiTutor.Core.Interfaces;
 using AiTutor.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
@@ -101,6 +103,124 @@ public class DeepSeekTextModelProvider : ITextModelProvider
             _logger.LogError(ex, "DeepSeek call failed with an unexpected error.");
             return "DeepSeek 文本模型调用时遇到问题。后端已经记录错误，请稍后再试。";
         }
+    }
+
+    /// <summary>
+    /// 调用 DeepSeek Chat Completions 的真实流式接口，逐段返回 choices.delta.content。
+    /// </summary>
+    /// <param name="prompt">渲染后的教学 Prompt。</param>
+    /// <param name="thinkingMode">思考模式，控制系统提示词中的讲解深度。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>模型增量输出片段。</returns>
+    /// <remarks>
+    /// 调用链：ChatAgent.StreamExecuteAsync -> ITextModelProvider.GenerateStreamAsync。
+    /// 本方法设置 stream=true，并使用 ResponseHeadersRead 避免等待完整响应。
+    /// </remarks>
+    public async IAsyncEnumerable<string> GenerateStreamAsync(
+        string prompt,
+        string? thinkingMode = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.DeepSeek.ApiKey))
+        {
+            yield return await GenerateAsync(prompt, cancellationToken);
+            yield break;
+        }
+
+        using var timeoutCts = CreateTimeoutToken(cancellationToken);
+        ProviderHttpHelper.SetBearerToken(_httpClient, _options.DeepSeek.ApiKey);
+
+        var endpoint = ProviderHttpHelper.BuildChatCompletionsUri(_options.DeepSeek.BaseUrl, FallbackBaseUrl);
+        var payload = new
+        {
+            model = ModelName,
+            messages = new[]
+            {
+                new { role = "system", content = BuildSystemPrompt(thinkingMode) },
+                new { role = "user", content = prompt }
+            },
+            temperature = 0.3,
+            stream = true
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(payload)
+        };
+
+        // 真实模型流式输出：响应头可用后立即开始读取 SSE data 行。
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            yield return await GenerateAsync(prompt, cancellationToken);
+            yield break;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync(timeoutCts.Token);
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var data = line["data:".Length..].Trim();
+            if (data == "[DONE]")
+            {
+                yield break;
+            }
+
+            var delta = ReadDeltaContent(data);
+            if (!string.IsNullOrEmpty(delta))
+            {
+                yield return delta;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 根据思考模式生成系统提示词，避免把该配置散落在 Agent 或 Controller。
+    /// </summary>
+    /// <param name="thinkingMode">brief、standard 或 deep。</param>
+    /// <returns>系统提示词。</returns>
+    private static string BuildSystemPrompt(string? thinkingMode)
+    {
+        var mode = (thinkingMode ?? "standard").Trim().ToLowerInvariant();
+        var depth = mode switch
+        {
+            "brief" => "讲解要简洁，直接给关键步骤。",
+            "deep" => "讲解要更细，先分析题意，再说明每一步为什么这样做。",
+            _ => "讲解要清楚分段，步骤适中。"
+        };
+
+        return $"你是一名耐心、鼓励、适合小学阶段学生的 AI 老师。回答要分步骤讲解，不要只给答案。{depth}";
+    }
+
+    /// <summary>
+    /// 从 OpenAI 兼容流式 JSON 中读取 choices[0].delta.content。
+    /// </summary>
+    /// <param name="json">单条 SSE data 的 JSON 内容。</param>
+    /// <returns>增量文本；无法解析时返回 null。</returns>
+    private static string? ReadDeltaContent(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var choice = document.RootElement.GetProperty("choices")[0];
+            if (choice.TryGetProperty("delta", out var delta) &&
+                delta.TryGetProperty("content", out var content))
+            {
+                return content.GetString();
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AiTutor.Maui.Views.HomePage"
+             Shell.NavBarIsVisible="False"
+             Title="AiTutor">
+    <Grid BackgroundColor="#F8FAFC" ColumnDefinitions="150,*">
+        <Grid Padding="20,28,16,22"
+              RowDefinitions="Auto,*,Auto"
+              BackgroundColor="#FFFFFF">
+            <HorizontalStackLayout Spacing="10">
+                <Border WidthRequest="38" HeightRequest="38" BackgroundColor="#2563EB">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="16" />
+                    </Border.StrokeShape>
+                    <Label Text="学"
+                           FontSize="20"
+                           FontAttributes="Bold"
+                           TextColor="#FFFFFF"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Border>
+                <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                    <Label Text="小状元"
+                           FontSize="19"
+                           FontAttributes="Bold"
+                           TextColor="#1E293B" />
+                    <Label Text="AI TUTOR"
+                           FontSize="9"
+                           FontAttributes="Bold"
+                           TextColor="#2563EB" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <VerticalStackLayout Grid.Row="1"
+                                 Margin="0,48,0,0"
+                                 Spacing="12">
+                <Button Text="首页"
+                        Command="{Binding OpenHomeCommand}"
+                        BackgroundColor="#2563EB"
+                        TextColor="#FFFFFF"
+                        CornerRadius="16"
+                        HeightRequest="54"
+                        FontAttributes="Bold"
+                        FontSize="15" />
+                <Button Text="问 AI"
+                        Command="{Binding OpenChatCommand}"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#8CA0B8"
+                        CornerRadius="16"
+                        HeightRequest="48"
+                        FontAttributes="Bold"
+                        FontSize="14" />
+                <Button Text="拍照讲题"
+                        Command="{Binding OpenPhotoQuestionCommand}"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#8CA0B8"
+                        CornerRadius="16"
+                        HeightRequest="48"
+                        FontAttributes="Bold"
+                        FontSize="14" />
+                <Button Text="作业检查"
+                        Command="{Binding OpenHomeworkCheckCommand}"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#8CA0B8"
+                        CornerRadius="16"
+                        HeightRequest="48"
+                        FontAttributes="Bold"
+                        FontSize="14" />
+                <Button Text="错题本"
+                        Command="{Binding OpenWrongBookCommand}"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#8CA0B8"
+                        CornerRadius="16"
+                        HeightRequest="48"
+                        FontAttributes="Bold"
+                        FontSize="14" />
+                <Button Text="教材"
+                        IsEnabled="False"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#CBD5E1"
+                        CornerRadius="16"
+                        HeightRequest="48"
+                        FontAttributes="Bold"
+                        FontSize="14" />
+                <Button Text="学习计划"
+                        IsEnabled="False"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#CBD5E1"
+                        CornerRadius="16"
+                        HeightRequest="48"
+                        FontAttributes="Bold"
+                        FontSize="14" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid Grid.Column="1"
+              Padding="40,28,34,34"
+              RowDefinitions="92,*"
+              RowSpacing="18">
+            <Grid ColumnDefinitions="*,Auto,Auto"
+                  ColumnSpacing="12">
+                <VerticalStackLayout Spacing="4">
+                    <Label FontSize="30"
+                           FontAttributes="Bold"
+                           TextColor="#1E293B">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="早安，" />
+                                <Span Text="小状元！" TextColor="#2563EB" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                    <Label Text="每天进步一点点，开启智慧的一天吧。"
+                           FontSize="14"
+                           TextColor="#64748B" />
+                </VerticalStackLayout>
+
+                <Button Grid.Column="1"
+                        Text="{Binding CurrentGrade}"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        HeightRequest="42"
+                        Padding="18,0"
+                        CornerRadius="14"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#475569"
+                        BorderColor="#E2E8F0"
+                        BorderWidth="1"
+                        VerticalOptions="Start" />
+                <Button Grid.Column="2"
+                        Text="设置"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        WidthRequest="56"
+                        HeightRequest="42"
+                        CornerRadius="14"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#94A3B8"
+                        BorderColor="#E2E8F0"
+                        BorderWidth="1"
+                        VerticalOptions="Start"
+                        Command="{Binding OpenSettingsCommand}" />
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,*"
+                  RowDefinitions="*,*"
+                  ColumnSpacing="30"
+                  RowSpacing="26">
+                <Border Padding="30"
+                        StrokeThickness="0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#6366F1" Offset="0" />
+                            <GradientStop Color="#2563EB" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="30" />
+                    </Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenChatCommand}" />
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="9" VerticalOptions="Center">
+                        <Border WidthRequest="48" HeightRequest="48" BackgroundColor="#33FFFFFF" HorizontalOptions="Start">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="18" />
+                            </Border.StrokeShape>
+                            <Label Text="AI" FontSize="21" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                        </Border>
+                        <Label Text="问 AI 老师" FontSize="20" FontAttributes="Bold" TextColor="#FFFFFF" />
+                        <Label Text="有问必答，像百科全书一样讲解知识难点、成语典故、随问随答。"
+                               FontSize="13"
+                               LineHeight="1.18"
+                               TextColor="#EEF2FF" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Column="1" Padding="30" StrokeThickness="0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#10B981" Offset="0" />
+                            <GradientStop Color="#0F766E" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="30" />
+                    </Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenPhotoQuestionCommand}" />
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="9" VerticalOptions="Center">
+                        <Border WidthRequest="48" HeightRequest="48" BackgroundColor="#33FFFFFF" HorizontalOptions="Start">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="18" />
+                            </Border.StrokeShape>
+                            <Label Text="拍" FontSize="24" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                        </Border>
+                        <Label Text="拍照讲题" FontSize="20" FontAttributes="Bold" TextColor="#FFFFFF" />
+                        <Label Text="对着题目拍一拍，AI 老师立即拆解思路，举一反三，彻底学通。"
+                               FontSize="13"
+                               LineHeight="1.18"
+                               TextColor="#E1FFF5" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Row="1" Padding="30" StrokeThickness="0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#F59E0B" Offset="0" />
+                            <GradientStop Color="#F97316" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="30" />
+                    </Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenHomeworkCheckCommand}" />
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="9" VerticalOptions="Center">
+                        <Border WidthRequest="48" HeightRequest="48" BackgroundColor="#33FFFFFF" HorizontalOptions="Start">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="18" />
+                            </Border.StrokeShape>
+                            <Label Text="检" FontSize="24" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                        </Border>
+                        <Label Text="检查作业" FontSize="20" FontAttributes="Bold" TextColor="#FFFFFF" />
+                        <Label Text="整页批改，错因智能分析，不仅告诉你错了，更告诉你为什么错。"
+                               FontSize="13"
+                               LineHeight="1.18"
+                               TextColor="#FFF7D6" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Row="1" Grid.Column="1" Padding="30" StrokeThickness="0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#FB7185" Offset="0" />
+                            <GradientStop Color="#E11D48" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="30" />
+                    </Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenWrongBookCommand}" />
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="9" VerticalOptions="Center">
+                        <Border WidthRequest="48" HeightRequest="48" BackgroundColor="#33FFFFFF" HorizontalOptions="Start">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="18" />
+                            </Border.StrokeShape>
+                            <Label Text="错" FontSize="24" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                        </Border>
+                        <Label Text="错题复习" FontSize="20" FontAttributes="Bold" TextColor="#FFFFFF" />
+                        <Label Text="基于艾宾浩斯记忆曲线，科学安排错题重做，彻底告别重复错误。"
+                               FontSize="13"
+                               LineHeight="1.18"
+                               TextColor="#FFE4EA" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

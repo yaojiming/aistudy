@@ -6,12 +6,7 @@ namespace AiTutor.Infrastructure.Agents;
 /// <summary>
 /// 作业检查 Agent，负责识别作业图片并返回逐题检查结果。
 /// </summary>
-/// <remarks>
-/// 调用链：AgentService -> AgentRouter 选择 HomeworkCheckAgent -> HomeworkCheckAgent -> IVisionModelProvider。
-/// Phase 3 后视觉 Provider 可按配置切换 Mock 或 GLM；HomeworkCheckItem 和 WrongQuestion 的保存仍由 AgentService 调用 HomeworkCheckService 完成。
-/// 当前阶段保留结构化 Mock 检查项，保证数据库拆题保存链路稳定，同时把真实视觉模型返回文本放入 AnswerText。
-/// </remarks>
-public class HomeworkCheckAgent : IAgent
+public class HomeworkCheckAgent : IStreamingAgent
 {
     private readonly IVisionModelProvider _visionProvider;
     private readonly IPromptTemplateService _promptTemplateService;
@@ -25,31 +20,64 @@ public class HomeworkCheckAgent : IAgent
     public string Name => "HomeworkCheckAgent";
 
     /// <summary>
-    /// 执行作业检查流程。
+    /// 执行非流式作业检查，供普通 Agent 接口使用。
     /// </summary>
-    /// <param name="request">作业图片检查请求。</param>
-    /// <param name="route">作业检查路由结果。</param>
+    /// <param name="request">包含作业图片路径的请求。</param>
+    /// <param name="route">Agent 路由结果。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>包含 AnswerText 和 HomeworkCheckResult 的统一响应。</returns>
-    /// <remarks>
-    /// 代码逻辑：
-    /// 1. 使用 homework_check 模板生成视觉 Prompt；
-    /// 2. 调用当前注入的视觉 Provider，Mock 模式不需要 API Key，Real 模式会访问 GLM；
-    /// 3. 构造结构化 HomeworkCheckResult，供 HomeworkCheckService 保存到 HomeworkCheckItem；
-    /// 4. 错题项会在保存服务中自动生成 WrongQuestion。
-    /// </remarks>
+    /// <returns>包含作业检查结构化结果的完整响应。</returns>
     public async Task<AgentResponse> ExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default)
     {
-        var prompt = _promptTemplateService.Render("homework_check", new Dictionary<string, string?>
+        var modelAnswer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), cancellationToken);
+        return CreateResponse(route, modelAnswer);
+    }
+
+    /// <summary>
+    /// 执行真实流式作业检查，先流式展示视觉模型判断，再在 final 中返回结构化结果。
+    /// </summary>
+    /// <param name="request">包含作业图片路径与 ThinkingMode 的请求。</param>
+    /// <param name="route">Agent 路由结果。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>delta 文本片段和最终作业检查响应。</returns>
+    public async IAsyncEnumerable<AgentStreamChunkDto> StreamExecuteAsync(
+        AgentRequest request,
+        AgentRouteResult route,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var answerText = string.Empty;
+        await foreach (var delta in _visionProvider.AnalyzeImageStreamAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), request.ThinkingMode, cancellationToken))
+        {
+            answerText += delta;
+            yield return new AgentStreamChunkDto { Type = "delta", Text = delta };
+        }
+
+        yield return new AgentStreamChunkDto { Type = "final", FinalResponse = CreateResponse(route, answerText) };
+    }
+
+    /// <summary>
+    /// 渲染作业检查 Prompt。
+    /// </summary>
+    /// <param name="request">作业检查请求。</param>
+    /// <returns>渲染后的 Prompt。</returns>
+    private string BuildPrompt(AgentRequest request)
+    {
+        return _promptTemplateService.Render("homework_check", new Dictionary<string, string?>
         {
             ["imageUrl"] = request.ImageUrl,
             ["subject"] = request.Subject,
             ["grade"] = request.Grade
         });
+    }
 
-        var modelAnswer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, prompt, cancellationToken);
+    /// <summary>
+    /// 组装作业检查响应，当前结构化 DTO 保持 Mock，文本部分使用真实视觉模型输出。
+    /// </summary>
+    /// <param name="route">Agent 路由结果。</param>
+    /// <param name="modelAnswer">视觉模型输出文本。</param>
+    /// <returns>统一 AgentResponse。</returns>
+    private static AgentResponse CreateResponse(AgentRouteResult route, string modelAnswer)
+    {
         var result = CreateStructuredMockResult();
-
         var response = ResponseFactory.Create(route, modelAnswer, canAddToWrongBook: true);
         response.OutputType = "structured_json";
         response.HomeworkCheckResult = result;
@@ -59,14 +87,9 @@ public class HomeworkCheckAgent : IAgent
     }
 
     /// <summary>
-    /// 创建稳定的结构化作业检查结果。
+    /// 创建 MVP 阶段稳定的作业检查结构化结果，保证保存 HomeworkCheckItem 和 WrongQuestion 链路可验证。
     /// </summary>
-    /// <returns>包含 3 道题、1 道错题的 HomeworkCheckResultDto。</returns>
-    /// <remarks>
-    /// 调用链：ExecuteAsync -> CreateStructuredMockResult -> AgentService -> HomeworkCheckService.SaveItemsAsync。
-    /// Phase 3 的重点是真实 Provider 接入，不扩展 JSON 解析功能；因此暂时保留结构化 Mock 结果，
-    /// 后续可以把 GLM 返回的 JSON 解析为同一 DTO，而不改变保存链路。
-    /// </remarks>
+    /// <returns>作业检查 DTO。</returns>
     private static HomeworkCheckResultDto CreateStructuredMockResult()
     {
         return new HomeworkCheckResultDto
@@ -79,7 +102,7 @@ public class HomeworkCheckAgent : IAgent
             [
                 new HomeworkCheckItemDto
                 {
-                    QuestionNo = "第1题",
+                    QuestionNo = "第 1 题",
                     QuestionText = "12 ÷ 3 = ?",
                     StudentAnswer = "4",
                     CorrectAnswer = "4",
@@ -89,7 +112,7 @@ public class HomeworkCheckAgent : IAgent
                 },
                 new HomeworkCheckItemDto
                 {
-                    QuestionNo = "第2题",
+                    QuestionNo = "第 2 题",
                     QuestionText = "7 × 8 = ?",
                     StudentAnswer = "54",
                     CorrectAnswer = "56",
@@ -100,7 +123,7 @@ public class HomeworkCheckAgent : IAgent
                 },
                 new HomeworkCheckItemDto
                 {
-                    QuestionNo = "第3题",
+                    QuestionNo = "第 3 题",
                     QuestionText = "35 + 27 = ?",
                     StudentAnswer = "62",
                     CorrectAnswer = "62",

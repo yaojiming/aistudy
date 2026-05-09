@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using AiTutor.Core.Interfaces;
 using AiTutor.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
@@ -115,6 +117,131 @@ public class GlmVisionModelProvider : IVisionModelProvider
             _logger.LogError(ex, "GLM vision call failed with an unexpected error.");
             return "GLM 视觉模型调用时遇到问题。后端已经记录错误，请稍后再试。";
         }
+    }
+
+    /// <summary>
+    /// 调用 GLM 视觉模型真实流式接口，逐段返回图片识别和讲解内容。
+    /// </summary>
+    /// <param name="imageUrl">可供模型访问的图片地址或后端图片路径。</param>
+    /// <param name="prompt">渲染后的视觉 Prompt。</param>
+    /// <param name="thinkingMode">思考模式，控制讲解简洁或细致。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>视觉模型增量输出片段。</returns>
+    /// <remarks>
+    /// 调用链：VisionAgent/HomeworkCheckAgent.StreamExecuteAsync -> IVisionModelProvider.AnalyzeImageStreamAsync。
+    /// 本方法设置 stream=true，并按 OpenAI 兼容 SSE 协议解析 delta。
+    /// </remarks>
+    public async IAsyncEnumerable<string> AnalyzeImageStreamAsync(
+        string imageUrl,
+        string prompt,
+        string? thinkingMode = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey) || string.IsNullOrWhiteSpace(imageUrl))
+        {
+            yield return await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
+            yield break;
+        }
+
+        using var timeoutCts = CreateTimeoutToken(cancellationToken);
+        ProviderHttpHelper.SetBearerToken(_httpClient, _options.Zhipu.ApiKey);
+
+        var endpoint = ProviderHttpHelper.BuildChatCompletionsUri(_options.Zhipu.BaseUrl, FallbackBaseUrl);
+        var payload = new
+        {
+            model = ModelName,
+            messages = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "text", text = ApplyThinkingMode(prompt, thinkingMode) },
+                        new { type = "image_url", image_url = new { url = imageUrl } }
+                    }
+                }
+            },
+            temperature = 0.2,
+            stream = true
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(payload)
+        };
+
+        // 真实视觉模型流式输出：不等待完整图片分析完成，边生成边返回。
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            yield return await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
+            yield break;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync(timeoutCts.Token);
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var data = line["data:".Length..].Trim();
+            if (data == "[DONE]")
+            {
+                yield break;
+            }
+
+            var delta = ReadDeltaContent(data);
+            if (!string.IsNullOrEmpty(delta))
+            {
+                yield return delta;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 将思考模式附加到视觉 Prompt，控制真实模型输出长度和细致程度。
+    /// </summary>
+    /// <param name="prompt">原始视觉 Prompt。</param>
+    /// <param name="thinkingMode">brief、standard 或 deep。</param>
+    /// <returns>带思考模式要求的 Prompt。</returns>
+    private static string ApplyThinkingMode(string prompt, string? thinkingMode)
+    {
+        return (thinkingMode ?? "standard").Trim().ToLowerInvariant() switch
+        {
+            "brief" => prompt + "\n\n请简洁输出，只保留关键判断和关键步骤。",
+            "deep" => prompt + "\n\n请更细致地说明识别依据、题意理解、每一步原因和易错点。",
+            _ => prompt + "\n\n请清楚分段输出，步骤适中。"
+        };
+    }
+
+    /// <summary>
+    /// 从 OpenAI 兼容流式 JSON 中读取 choices[0].delta.content。
+    /// </summary>
+    /// <param name="json">单条 SSE data 的 JSON 内容。</param>
+    /// <returns>增量文本；无法解析时返回 null。</returns>
+    private static string? ReadDeltaContent(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var choice = document.RootElement.GetProperty("choices")[0];
+            if (choice.TryGetProperty("delta", out var delta) &&
+                delta.TryGetProperty("content", out var content))
+            {
+                return content.GetString();
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
     }
 
     /// <summary>
