@@ -19,9 +19,10 @@ public class ChatViewModel : ViewModelBase
     private CancellationTokenSource? _sendCancellationTokenSource;
     private readonly List<ConversationTurn> _conversationTurns = [];
 
-    public ChatViewModel(IApiClientService apiClientService)
+    public ChatViewModel(IApiClientService apiClientService, IAppSettingsService settingsService)
     {
         _apiClientService = apiClientService;
+        _selectedGrade = settingsService.GetCurrentGrade();
         Messages =
         [
             new ChatMessageViewModel(
@@ -31,7 +32,7 @@ public class ChatViewModel : ViewModelBase
         ];
 
         QuickQuestions = ["再讲简单点", "给我例子", "出一道类似题", "加入错题本"];
-        SubmitCommand = new AsyncCommand(SubmitOrStopAsync);
+        SubmitCommand = new ReentrantAsyncCommand(SubmitOrStopAsync);
         NewSessionCommand = new AsyncCommand(NewSessionAsync);
         BackCommand = new AsyncCommand(() => Shell.Current.GoToAsync("//home", false));
         PhotoPlaceholderCommand = new AsyncCommand(() => Shell.Current.GoToAsync("photo-question", false));
@@ -357,4 +358,25 @@ public sealed class AsyncCommand<T> : ICommand
     public event EventHandler? CanExecuteChanged;
     public bool CanExecute(object? parameter) => true;
     public async void Execute(object? parameter) => await _execute((T?)parameter);
+}
+
+public sealed class ReentrantAsyncCommand : ICommand
+{
+    private readonly Func<Task> _execute;
+
+    public ReentrantAsyncCommand(Func<Task> execute)
+    {
+        _execute = execute;
+    }
+
+    public event EventHandler? CanExecuteChanged;
+    public bool CanExecute(object? parameter) => true;
+
+    /// <summary>
+    /// 允许发送按钮在流式回答期间再次触发，用于把第二次点击转换为停止回答。
+    /// </summary>
+    public async void Execute(object? parameter)
+    {
+        await _execute();
+    }
 }

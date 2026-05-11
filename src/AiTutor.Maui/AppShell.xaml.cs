@@ -9,6 +9,7 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute("chat", typeof(Views.ChatPage));
 		Routing.RegisterRoute("photo-question", typeof(Views.PhotoQuestionPage));
 		Routing.RegisterRoute("homework-check", typeof(Views.HomeworkCheckPage));
+		Routing.RegisterRoute("settings", typeof(Views.SettingsPage));
 		Routing.RegisterRoute("wrong-book", typeof(Views.WrongBookPage));
 		Routing.RegisterRoute("wrong-question-detail", typeof(Views.WrongQuestionDetailPage));
 	}

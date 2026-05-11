@@ -1,36 +1,36 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using AiTutor.Core.Interfaces;
 using AiTutor.Infrastructure.Options;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AiTutor.Infrastructure.Agents;
 
 /// <summary>
-/// 智谱 GLM 视觉模型 Provider，负责图片讲题与作业检查的真实视觉模型调用。
-/// </summary>
+/// 鏅鸿氨 GLM 瑙嗚妯″瀷 Provider锛岃礋璐ｅ浘鐗囪棰樹笌浣滀笟妫€鏌ョ殑鐪熷疄瑙嗚妯″瀷璋冪敤銆?/// </summary>
 /// <remarks>
-/// 调用链：VisionAgent / HomeworkCheckAgent -> IVisionModelProvider -> GlmVisionModelProvider。
-/// 本类通过 IHttpClientFactory 注入 HttpClient，并按 OpenAI 兼容的多模态消息格式提交图片地址和教学 Prompt。
-/// 数据库存储、AgentResponse 组装和 ModelCallLog 仍由上层 Agent 与 AgentService 负责，Provider 不直接操作 DbContext。
-/// </remarks>
+/// 璋冪敤閾撅細VisionAgent / HomeworkCheckAgent -> IVisionModelProvider -> GlmVisionModelProvider銆?/// 鏈被閫氳繃 IHttpClientFactory 娉ㄥ叆 HttpClient锛屽苟鎸?OpenAI 鍏煎鐨勫妯℃€佹秷鎭牸寮忔彁浜ゅ浘鐗囧湴鍧€鍜屾暀瀛?Prompt銆?/// 鏁版嵁搴撳瓨鍌ㄣ€丄gentResponse 缁勮鍜?ModelCallLog 浠嶇敱涓婂眰 Agent 涓?AgentService 璐熻矗锛孭rovider 涓嶇洿鎺ユ搷浣?DbContext銆?/// </remarks>
 public class GlmVisionModelProvider : IVisionModelProvider
 {
     private const string FallbackBaseUrl = "https://open.bigmodel.cn/api/paas/v4";
 
     private readonly HttpClient _httpClient;
     private readonly AiProviderOptions _options;
+    private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<GlmVisionModelProvider> _logger;
 
     public GlmVisionModelProvider(
         HttpClient httpClient,
         IOptions<AiProviderOptions> options,
+        IHostEnvironment hostEnvironment,
         ILogger<GlmVisionModelProvider> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _hostEnvironment = hostEnvironment;
         _logger = logger;
     }
 
@@ -41,21 +41,13 @@ public class GlmVisionModelProvider : IVisionModelProvider
         : _options.Zhipu.VisionModel;
 
     /// <summary>
-    /// 调用 GLM 视觉模型识别图片并生成讲解。
-    /// </summary>
-    /// <param name="imageUrl">前端传入的图片 URL 或可访问图片地址。</param>
-    /// <param name="prompt">PromptTemplateService 渲染后的图片讲题或作业检查 Prompt。</param>
-    /// <param name="cancellationToken">请求取消令牌。</param>
-    /// <returns>视觉模型返回的识别与讲解文本；异常或配置缺失时返回友好错误文本。</returns>
+    /// 璋冪敤 GLM 瑙嗚妯″瀷璇嗗埆鍥剧墖骞剁敓鎴愯瑙ｃ€?    /// </summary>
+    /// <param name="imageUrl">鍓嶇浼犲叆鐨勫浘鐗?URL 鎴栧彲璁块棶鍥剧墖鍦板潃銆?/param>
+    /// <param name="prompt">PromptTemplateService 娓叉煋鍚庣殑鍥剧墖璁查鎴栦綔涓氭鏌?Prompt銆?/param>
+    /// <param name="cancellationToken">璇锋眰鍙栨秷浠ょ墝銆?/param>
+    /// <returns>瑙嗚妯″瀷杩斿洖鐨勮瘑鍒笌璁茶В鏂囨湰锛涘紓甯告垨閰嶇疆缂哄け鏃惰繑鍥炲弸濂介敊璇枃鏈€?/returns>
     /// <remarks>
-    /// 代码逻辑：
-    /// 1. 校验 Zhipu ApiKey 和图片地址；
-    /// 2. 使用 Bearer Token 鉴权；
-    /// 3. 将 prompt 与 image_url 放入同一条 user message 的 content 数组；
-    /// 4. 通过 TimeoutSeconds 控制 HTTP 请求时长；
-    /// 5. 解析 choices[0].message.content；
-    /// 6. 出错时只记录安全日志，不泄露 API Key，不让后端崩溃。
-    /// </remarks>
+    /// 浠ｇ爜閫昏緫锛?    /// 1. 鏍￠獙 Zhipu ApiKey 鍜屽浘鐗囧湴鍧€锛?    /// 2. 浣跨敤 Bearer Token 閴存潈锛?    /// 3. 灏?prompt 涓?image_url 鏀惧叆鍚屼竴鏉?user message 鐨?content 鏁扮粍锛?    /// 4. 閫氳繃 TimeoutSeconds 鎺у埗 HTTP 璇锋眰鏃堕暱锛?    /// 5. 瑙ｆ瀽 choices[0].message.content锛?    /// 6. 鍑洪敊鏃跺彧璁板綍瀹夊叏鏃ュ織锛屼笉娉勯湶 API Key锛屼笉璁╁悗绔穿婧冦€?    /// </remarks>
     public async Task<string> AnalyzeImageAsync(string imageUrl, string prompt, CancellationToken cancellationToken = default)
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey))
@@ -72,6 +64,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
         {
             using var timeoutCts = CreateTimeoutToken(cancellationToken);
             ProviderHttpHelper.SetBearerToken(_httpClient, _options.Zhipu.ApiKey);
+            var modelImageUrl = await ResolveModelImageUrlAsync(imageUrl, timeoutCts.Token);
 
             var endpoint = ProviderHttpHelper.BuildChatCompletionsUri(_options.Zhipu.BaseUrl, FallbackBaseUrl);
             var payload = new
@@ -85,7 +78,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
                         content = new object[]
                         {
                             new { type = "text", text = prompt },
-                            new { type = "image_url", image_url = new { url = imageUrl } }
+                            new { type = "image_url", image_url = new { url = modelImageUrl } }
                         }
                     }
                 },
@@ -98,7 +91,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("GLM vision call failed. StatusCode={StatusCode}", response.StatusCode);
+                _logger.LogWarning("GLM vision call failed. StatusCode={StatusCode}, Body={Body}", response.StatusCode, TruncateForLog(responseText));
                 return $"GLM 视觉模型调用失败，状态码：{(int)response.StatusCode}。请稍后再试，或切回 Mock 模式继续测试。";
             }
 
@@ -120,17 +113,14 @@ public class GlmVisionModelProvider : IVisionModelProvider
     }
 
     /// <summary>
-    /// 调用 GLM 视觉模型真实流式接口，逐段返回图片识别和讲解内容。
-    /// </summary>
-    /// <param name="imageUrl">可供模型访问的图片地址或后端图片路径。</param>
-    /// <param name="prompt">渲染后的视觉 Prompt。</param>
-    /// <param name="thinkingMode">思考模式，控制讲解简洁或细致。</param>
-    /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>视觉模型增量输出片段。</returns>
+    /// 璋冪敤 GLM 瑙嗚妯″瀷鐪熷疄娴佸紡鎺ュ彛锛岄€愭杩斿洖鍥剧墖璇嗗埆鍜岃瑙ｅ唴瀹广€?    /// </summary>
+    /// <param name="imageUrl">鍙緵妯″瀷璁块棶鐨勫浘鐗囧湴鍧€鎴栧悗绔浘鐗囪矾寰勩€?/param>
+    /// <param name="prompt">娓叉煋鍚庣殑瑙嗚 Prompt銆?/param>
+    /// <param name="thinkingMode">鎬濊€冩ā寮忥紝鎺у埗璁茶В绠€娲佹垨缁嗚嚧銆?/param>
+    /// <param name="cancellationToken">鍙栨秷浠ょ墝銆?/param>
+    /// <returns>瑙嗚妯″瀷澧為噺杈撳嚭鐗囨銆?/returns>
     /// <remarks>
-    /// 调用链：VisionAgent/HomeworkCheckAgent.StreamExecuteAsync -> IVisionModelProvider.AnalyzeImageStreamAsync。
-    /// 本方法设置 stream=true，并按 OpenAI 兼容 SSE 协议解析 delta。
-    /// </remarks>
+    /// 璋冪敤閾撅細VisionAgent/HomeworkCheckAgent.StreamExecuteAsync -> IVisionModelProvider.AnalyzeImageStreamAsync銆?    /// 鏈柟娉曡缃?stream=true锛屽苟鎸?OpenAI 鍏煎 SSE 鍗忚瑙ｆ瀽 delta銆?    /// </remarks>
     public async IAsyncEnumerable<string> AnalyzeImageStreamAsync(
         string imageUrl,
         string prompt,
@@ -145,8 +135,16 @@ public class GlmVisionModelProvider : IVisionModelProvider
 
         using var timeoutCts = CreateTimeoutToken(cancellationToken);
         ProviderHttpHelper.SetBearerToken(_httpClient, _options.Zhipu.ApiKey);
+        var modelImageUrl = await ResolveModelImageUrlAsync(imageUrl, timeoutCts.Token);
 
         var endpoint = ProviderHttpHelper.BuildChatCompletionsUri(_options.Zhipu.BaseUrl, FallbackBaseUrl);
+        var modelPrompt = ApplyThinkingMode(prompt, thinkingMode);
+        _logger.LogInformation(
+            "GLM vision stream request prepared. Model={Model}, ThinkingMode={ThinkingMode}, PromptLength={PromptLength}",
+            ModelName,
+            string.IsNullOrWhiteSpace(thinkingMode) ? "standard" : thinkingMode,
+            modelPrompt.Length);
+
         var payload = new
         {
             model = ModelName,
@@ -157,8 +155,8 @@ public class GlmVisionModelProvider : IVisionModelProvider
                     role = "user",
                     content = new object[]
                     {
-                        new { type = "text", text = ApplyThinkingMode(prompt, thinkingMode) },
-                        new { type = "image_url", image_url = new { url = imageUrl } }
+                        new { type = "text", text = modelPrompt },
+                        new { type = "image_url", image_url = new { url = modelImageUrl } }
                     }
                 }
             },
@@ -171,19 +169,92 @@ public class GlmVisionModelProvider : IVisionModelProvider
             Content = JsonContent.Create(payload)
         };
 
-        // 真实视觉模型流式输出：不等待完整图片分析完成，边生成边返回。
-        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
+        yield return "AI老师正在读题...\n\n";
+
+        HttpResponseMessage? response = null;
+        var timeoutMessage = string.Empty;
+        try
+        {
+            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("GLM vision stream call timed out before response headers after {TimeoutSeconds} seconds.", _options.TimeoutSeconds);
+            timeoutMessage = "AI老师读图时间有点久，这次请求超时了。可以再试一次，或把题目裁剪得更清楚一些。";
+        }
+
+        if (!string.IsNullOrWhiteSpace(timeoutMessage) || response is null)
+        {
+            yield return timeoutMessage;
+            yield break;
+        }
+
+        using var responseScope = response;
         if (!response.IsSuccessStatusCode)
         {
+            var errorText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            _logger.LogWarning("GLM vision stream call failed. StatusCode={StatusCode}, Body={Body}", response.StatusCode, TruncateForLog(errorText));
             yield return await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
             yield break;
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+        yield return "AI老师正在分析题目...\n\n";
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (!string.Equals(mediaType, "text/event-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            var responseText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            _logger.LogInformation("GLM vision stream endpoint returned non-SSE response. ContentType={ContentType}, Body={Body}", mediaType, TruncateForLog(responseText));
+            var content = ProviderHttpHelper.ReadFirstChoiceContent(responseText);
+            yield return string.IsNullOrWhiteSpace(content)
+                ? "AI老师收到了模型响应，但没有解析到讲解内容。请检查 GLM 返回格式。"
+                : content;
+            yield break;
+        }
+
+        Stream? stream = null;
+        timeoutMessage = string.Empty;
+        try
+        {
+            stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("GLM vision stream call timed out while opening response stream after {TimeoutSeconds} seconds.", _options.TimeoutSeconds);
+            timeoutMessage = "AI老师分析题目时间过长，这次请求超时了。请稍后再试。";
+        }
+
+        if (!string.IsNullOrWhiteSpace(timeoutMessage) || stream is null)
+        {
+            yield return timeoutMessage;
+            yield break;
+        }
+
+        await using var streamScope = stream;
         using var reader = new StreamReader(stream, Encoding.UTF8);
+        var hasStartedReasoningSection = false;
+        var hasStartedContentSection = false;
         while (!reader.EndOfStream)
         {
-            var line = await reader.ReadLineAsync(timeoutCts.Token);
+            string? line;
+            timeoutMessage = string.Empty;
+            try
+            {
+                line = await reader.ReadLineAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("GLM vision stream call timed out while reading SSE after {TimeoutSeconds} seconds.", _options.TimeoutSeconds);
+                timeoutMessage = "\n\nAI老师这次思考太久，请稍后再试，或把图片裁剪得更清晰一些。";
+                line = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(timeoutMessage))
+            {
+                yield return timeoutMessage;
+                yield break;
+            }
+
             if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -196,35 +267,61 @@ public class GlmVisionModelProvider : IVisionModelProvider
             }
 
             var delta = ReadDeltaContent(data);
-            if (!string.IsNullOrEmpty(delta))
+            if (!string.IsNullOrEmpty(delta.Text))
             {
-                yield return delta;
+                _logger.LogDebug("GLM vision stream delta. Kind={Kind}, Length={Length}", delta.Kind, delta.Text.Length);
+
+                if (delta.Kind == ModelDeltaKind.Reasoning)
+                {
+                    if (!hasStartedReasoningSection)
+                    {
+                        hasStartedReasoningSection = true;
+                        yield return "\n\n【思路分析】\n";
+                    }
+
+                    yield return delta.Text;
+                    continue;
+                }
+
+                if (!hasStartedContentSection)
+                {
+                    hasStartedContentSection = true;
+                    if (hasStartedReasoningSection)
+                    {
+                        yield return "\n\n【正式讲解】\n";
+                    }
+                }
+
+                yield return delta.Text;
             }
         }
     }
-
     /// <summary>
-    /// 将思考模式附加到视觉 Prompt，控制真实模型输出长度和细致程度。
-    /// </summary>
-    /// <param name="prompt">原始视觉 Prompt。</param>
-    /// <param name="thinkingMode">brief、standard 或 deep。</param>
-    /// <returns>带思考模式要求的 Prompt。</returns>
+    /// 灏嗘€濊€冩ā寮忛檮鍔犲埌瑙嗚 Prompt锛屾帶鍒剁湡瀹炴ā鍨嬭緭鍑洪暱搴﹀拰缁嗚嚧绋嬪害銆?    /// </summary>
+    /// <param name="prompt">鍘熷瑙嗚 Prompt銆?/param>
+    /// <param name="thinkingMode">brief銆乻tandard 鎴?deep銆?/param>
+    /// <returns>甯︽€濊€冩ā寮忚姹傜殑 Prompt銆?/returns>
     private static string ApplyThinkingMode(string prompt, string? thinkingMode)
     {
+        const string visibleReasoningInstruction = """
+
+            请把适合学生观看的解题思考过程也写入正式回答，并放在【思路分析】小节中流式输出。
+            【思路分析】只写清楚“先观察什么、再判断什么、为什么这样做”，不要输出模型内部草稿、隐藏推理或与题目无关的自言自语。
+            """;
+
         return (thinkingMode ?? "standard").Trim().ToLowerInvariant() switch
         {
-            "brief" => prompt + "\n\n请简洁输出，只保留关键判断和关键步骤。",
-            "deep" => prompt + "\n\n请更细致地说明识别依据、题意理解、每一步原因和易错点。",
-            _ => prompt + "\n\n请清楚分段输出，步骤适中。"
+            "brief" => prompt + "\n\n请快速、简洁输出，只保留题目识别、关键步骤和答案。",
+            "deep" => prompt + visibleReasoningInstruction + "\n\n请更细致地说明识别依据、题意理解、每一步原因和易错点。",
+            _ => prompt + "\n\n请尽快开始输出。按【识别结果】【解题步骤】【最终答案】三部分讲解，步骤适中，不要额外展开长篇思考。"
         };
     }
 
     /// <summary>
-    /// 从 OpenAI 兼容流式 JSON 中读取 choices[0].delta.content。
-    /// </summary>
-    /// <param name="json">单条 SSE data 的 JSON 内容。</param>
-    /// <returns>增量文本；无法解析时返回 null。</returns>
-    private static string? ReadDeltaContent(string json)
+    /// 浠?OpenAI 鍏煎娴佸紡 JSON 涓鍙?choices[0].delta.content銆?    /// </summary>
+    /// <param name="json">鍗曟潯 SSE data 鐨?JSON 鍐呭銆?/param>
+    /// <returns>澧為噺鏂囨湰锛涙棤娉曡В鏋愭椂杩斿洖 null銆?/returns>
+    private static ModelDelta ReadDeltaContent(string json)
     {
         try
         {
@@ -233,31 +330,140 @@ public class GlmVisionModelProvider : IVisionModelProvider
             if (choice.TryGetProperty("delta", out var delta) &&
                 delta.TryGetProperty("content", out var content))
             {
-                return content.GetString();
+                return new ModelDelta(ModelDeltaKind.Content, ReadContentElement(content));
+            }
+
+            if (choice.TryGetProperty("message", out var message) &&
+                message.TryGetProperty("content", out content))
+            {
+                return new ModelDelta(ModelDeltaKind.Content, ReadContentElement(content));
+            }
+
+            if (choice.TryGetProperty("delta", out delta) &&
+                (delta.TryGetProperty("reasoning_content", out var reasoning) ||
+                 delta.TryGetProperty("reasoning", out reasoning) ||
+                 delta.TryGetProperty("thought", out reasoning)) &&
+                !string.IsNullOrWhiteSpace(reasoning.GetString()))
+            {
+                return new ModelDelta(ModelDeltaKind.Reasoning, reasoning.GetString());
             }
         }
         catch
         {
-            return null;
+            return ModelDelta.Empty;
         }
 
-        return null;
+        return ModelDelta.Empty;
     }
 
     /// <summary>
-    /// 为单次 GLM 视觉请求创建带超时的取消令牌。
+    /// 兼容不同 OpenAI 风格响应中的 content 字段：字符串直接返回，数组则拼接其中的 text。
     /// </summary>
-    /// <param name="cancellationToken">ASP.NET Core 请求传入的原始取消令牌。</param>
-    /// <returns>链接原始取消令牌并附加 TimeoutSeconds 的 CancellationTokenSource。</returns>
+    /// <param name="content">模型返回的 content JSON 节点。</param>
+    /// <returns>可展示的增量文本；无法识别时返回 null。</returns>
+    private static string? ReadContentElement(JsonElement content)
+    {
+        if (content.ValueKind == JsonValueKind.String)
+        {
+            return content.GetString();
+        }
+
+        if (content.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var builder = new StringBuilder();
+        foreach (var item in content.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                builder.Append(item.GetString());
+                continue;
+            }
+
+            if (item.ValueKind == JsonValueKind.Object &&
+                item.TryGetProperty("text", out var text) &&
+                text.ValueKind == JsonValueKind.String)
+            {
+                builder.Append(text.GetString());
+            }
+        }
+
+        return builder.Length == 0 ? null : builder.ToString();
+    }
+
+    /// <summary>
+    /// 涓哄崟娆?GLM 瑙嗚璇锋眰鍒涘缓甯﹁秴鏃剁殑鍙栨秷浠ょ墝銆?    /// </summary>
+    /// <param name="cancellationToken">ASP.NET Core 璇锋眰浼犲叆鐨勫師濮嬪彇娑堜护鐗屻€?/param>
+    /// <returns>閾炬帴鍘熷鍙栨秷浠ょ墝骞堕檮鍔?TimeoutSeconds 鐨?CancellationTokenSource銆?/returns>
     /// <remarks>
-    /// 调用链：AnalyzeImageAsync -> CreateTimeoutToken -> HttpClient.PostAsJsonAsync。
-    /// 视觉模型通常比纯文本模型更慢，单次超时控制可以避免 Swagger 或客户端长时间等待。
-    /// </remarks>
+    /// 璋冪敤閾撅細AnalyzeImageAsync -> CreateTimeoutToken -> HttpClient.PostAsJsonAsync銆?    /// 瑙嗚妯″瀷閫氬父姣旂函鏂囨湰妯″瀷鏇存參锛屽崟娆¤秴鏃舵帶鍒跺彲浠ラ伩鍏?Swagger 鎴栧鎴风闀挎椂闂寸瓑寰呫€?    /// </remarks>
     private CancellationTokenSource CreateTimeoutToken(CancellationToken cancellationToken)
     {
-        var timeoutSeconds = _options.TimeoutSeconds <= 0 ? 30 : _options.TimeoutSeconds;
+        var timeoutSeconds = _options.TimeoutSeconds <= 0 ? 180 : Math.Max(_options.TimeoutSeconds, 180);
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         return timeoutCts;
+    }
+
+    /// <summary>
+    /// 灏嗘湰鍦板獟浣撹矾寰勮浆鎹负瑙嗚妯″瀷鍙鍙栫殑鍥剧墖鍦板潃銆?    /// </summary>
+    /// <remarks>
+    /// GLM 浜戠鏃犳硶璁块棶 /uploads/... 杩欑鍚庣鏈満鐩稿璺緞锛涚湡瀹炶皟鐢ㄥ墠杞负 data URL銆?    /// MAUI 褰撳墠鍙笂浼犵敤鎴风‘璁ゅ悗鐨勮鍓浘锛屾墍浠ヨ繖閲岀紪鐮佺殑涔熸槸瑁佸壀鍚庣殑棰樼洰鍥剧墖銆?    /// </remarks>
+    private async Task<string> ResolveModelImageUrlAsync(string imageUrl, CancellationToken cancellationToken)
+    {
+        if (imageUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+            imageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            imageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return imageUrl;
+        }
+
+        var relativePath = imageUrl.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
+        var physicalPath = Path.Combine(_hostEnvironment.ContentRootPath, "wwwroot", relativePath);
+        if (!File.Exists(physicalPath))
+        {
+            _logger.LogWarning("GLM vision image file not found. ImageUrl={ImageUrl}, PhysicalPath={PhysicalPath}", imageUrl, physicalPath);
+            return imageUrl;
+        }
+
+        var bytes = await File.ReadAllBytesAsync(physicalPath, cancellationToken);
+        var mimeType = GetImageMimeType(physicalPath);
+        _logger.LogInformation("GLM vision local image converted to data URL. ImageUrl={ImageUrl}, Bytes={Bytes}", imageUrl, bytes.Length);
+        return $"data:{mimeType};base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private static string GetImageMimeType(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "image/jpeg"
+        };
+    }
+
+    private static string TruncateForLog(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        return text.Length <= 1000 ? text : text[..1000] + "...";
+    }
+
+    private enum ModelDeltaKind
+    {
+        None,
+        Content,
+        Reasoning
+    }
+
+    private readonly record struct ModelDelta(ModelDeltaKind Kind, string? Text)
+    {
+        public static ModelDelta Empty => new(ModelDeltaKind.None, null);
     }
 }

@@ -7,8 +7,11 @@ public class HomeworkCheckViewModel : ImageAskViewModelBase
 {
     private bool _showWrongOnly;
 
-    public HomeworkCheckViewModel(IApiClientService apiClientService, ITabletMediaPickerService mediaPickerService)
-        : base(apiClientService, mediaPickerService)
+    public HomeworkCheckViewModel(
+        IApiClientService apiClientService,
+        ITabletMediaPickerService mediaPickerService,
+        IAppSettingsService settingsService)
+        : base(apiClientService, mediaPickerService, settingsService)
     {
         ResultText = "拍一页作业，AI老师会逐题检查。";
         ToggleWrongOnlyCommand = new AsyncCommand(() =>

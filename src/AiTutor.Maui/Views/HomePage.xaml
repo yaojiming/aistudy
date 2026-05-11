@@ -21,7 +21,7 @@
                            VerticalTextAlignment="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
-                    <Label Text="小状元"
+                    <Label Text="姚俊瑞"
                            FontSize="19"
                            FontAttributes="Bold"
                            TextColor="#1E293B" />
@@ -106,8 +106,8 @@
                            TextColor="#1E293B">
                         <Label.FormattedText>
                             <FormattedString>
-                                <Span Text="早安，" />
-                                <Span Text="小状元！" TextColor="#2563EB" />
+                                <Span Text="Hello，" />
+                                <Span Text="姚俊瑞！" TextColor="#2563EB" />
                             </FormattedString>
                         </Label.FormattedText>
                     </Label>
@@ -136,7 +136,7 @@
                         HeightRequest="42"
                         CornerRadius="14"
                         BackgroundColor="#FFFFFF"
-                        TextColor="#94A3B8"
+                        TextColor="#475569"
                         BorderColor="#E2E8F0"
                         BorderWidth="1"
                         VerticalOptions="Start"

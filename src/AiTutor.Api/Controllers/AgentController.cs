@@ -18,10 +18,12 @@ namespace AiTutor.Api.Controllers;
 public class AgentController : ControllerBase
 {
     private readonly IAgentService _agentService;
+    private readonly ILogger<AgentController> _logger;
 
-    public AgentController(IAgentService agentService)
+    public AgentController(IAgentService agentService, ILogger<AgentController> logger)
     {
         _agentService = agentService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -51,9 +53,12 @@ public class AgentController : ControllerBase
     {
         Response.ContentType = "text/event-stream; charset=utf-8";
         Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Append("X-Accel-Buffering", "no");
+        await Response.StartAsync(cancellationToken);
 
         await foreach (var chunk in _agentService.StreamAskAsync(request, cancellationToken))
         {
+            _logger.LogInformation("Agent stream chunk. Type={Type}, TextLength={TextLength}", chunk.Type, chunk.Text?.Length ?? 0);
             var eventName = chunk.Type == "final" ? "final" : chunk.Type == "error" ? "error" : "delta";
             await Response.WriteAsync($"event: {eventName}\n", cancellationToken);
             await Response.WriteAsync($"data: {JsonSerializer.Serialize(chunk)}\n\n", cancellationToken);

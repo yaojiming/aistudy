@@ -24,6 +24,9 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
         builder.Services.AddSingleton<ITabletMediaPickerService, TabletMediaPickerService>();
+        builder.Services.AddSingleton<IOcrService, AndroidOcrService>();
+        builder.Services.AddSingleton<IQuestionRegionBuilder, QuestionRegionBuilder>();
+        builder.Services.AddSingleton<IImageCropService, ImageCropService>();
         builder.Services.AddSingleton(_ => new HttpClient
         {
             Timeout = Timeout.InfiniteTimeSpan
@@ -34,6 +37,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ChatViewModel>();
         builder.Services.AddTransient<PhotoQuestionViewModel>();
         builder.Services.AddTransient<HomeworkCheckViewModel>();
+        builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddSingleton<WrongBookViewModel>();
         builder.Services.AddTransient<WrongQuestionDetailViewModel>();
 
@@ -41,6 +45,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ChatPage>();
         builder.Services.AddTransient<PhotoQuestionPage>();
         builder.Services.AddTransient<HomeworkCheckPage>();
+        builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<WrongBookPage>();
         builder.Services.AddTransient<WrongQuestionDetailPage>();
 

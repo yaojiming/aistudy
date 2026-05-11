@@ -40,9 +40,19 @@
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)' == 'Debug|net10.0-android'">
+		<!-- VS 调试时禁用 Fast Deployment，避免设备端 .__override__ 缺程序集导致冷启动黑屏或原生 abort。 -->
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+		<!-- 当前主要调试目标是 x86_64 Android 模拟器；减少多 ABI 打包可降低调试包损坏概率。 -->
+		<RuntimeIdentifier>android-x64</RuntimeIdentifier>
+		<MonoAndroidResourcePrefix>Platforms\Android\Resources</MonoAndroidResourcePrefix>
+		<!-- 嵌入程序集时不打包 Android 调试符号，避开部分 Windows Android 工具链的 PDB so 包装错误。 -->
+		<AndroidIncludeDebugSymbols>false</AndroidIncludeDebugSymbols>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -66,6 +76,8 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<PackageReference Include="SkiaSharp" Version="3.119.1" />
+		<PackageReference Include="Xamarin.Google.MLKit.TextRecognition.Chinese" Version="116.0.1.7" />
 	</ItemGroup>
 
 	<ItemGroup>

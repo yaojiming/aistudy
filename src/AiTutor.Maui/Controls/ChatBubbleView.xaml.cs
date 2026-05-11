@@ -82,9 +82,9 @@ public partial class ChatBubbleView : ContentView
     }
 
     /// <summary>
-    /// 支持当前聊天常见格式：Markdown 加粗、列表、分隔线和基础 LaTeX 分数。
+    /// 支持当前聊天常见格式：Markdown 加粗、标题、列表、分隔线和基础 LaTeX 数学文本。
     /// </summary>
-    private static FormattedString BuildFormattedText(string markdown, Color textColor)
+    public static FormattedString BuildFormattedText(string markdown, Color textColor)
     {
         var normalized = NormalizeLatex(markdown)
             .Replace("\\n", Environment.NewLine, StringComparison.Ordinal)
@@ -111,7 +111,7 @@ public partial class ChatBubbleView : ContentView
     }
 
     /// <summary>
-    /// 解析一行内的 Markdown 粗体标记，并把粗体内容映射为 Span.FontAttributes。
+    /// 解析一行内的 Markdown 标题和粗体标记，并映射为 Span.FontAttributes。
     /// </summary>
     private static void AppendMarkdownLine(FormattedString formatted, string line, Color textColor)
     {
@@ -152,27 +152,37 @@ public partial class ChatBubbleView : ContentView
     }
 
     /// <summary>
-    /// 将常见 LaTeX 文本公式转为小学生更容易读的普通展示文本。
+    /// 将常见 LaTeX 数学文本转为小学生更容易读、MAUI Label 也能稳定显示的普通文本。
     /// </summary>
     private static string NormalizeLatex(string text)
     {
         var normalized = text;
+
+        normalized = Regex.Replace(normalized, @"\\+(?:dfrac|tfrac|frac)\{([^{}]+)\}\{([^{}]+)\}", "$1/$2");
+        normalized = Regex.Replace(normalized, @"\\+(?:text|mathrm|operatorname)\{([^{}]*)\}", "$1");
+        normalized = Regex.Replace(normalized, @"\\+(?:left|right)", string.Empty);
+        normalized = Regex.Replace(normalized, @"\\+(?:quad|qquad|,|;|:|!)", " ");
         normalized = Regex.Replace(normalized, @"\\+\(", string.Empty);
         normalized = Regex.Replace(normalized, @"\\+\)", string.Empty);
         normalized = Regex.Replace(normalized, @"\\+\[", string.Empty);
         normalized = Regex.Replace(normalized, @"\\+\]", string.Empty);
-        normalized = Regex.Replace(normalized, @"\\+frac\{([^{}]+)\}\{([^{}]+)\}", "$1/$2");
-        normalized = Regex.Replace(normalized, @"\\+dfrac\{([^{}]+)\}\{([^{}]+)\}", "$1/$2");
-        normalized = Regex.Replace(normalized, @"\\+tfrac\{([^{}]+)\}\{([^{}]+)\}", "$1/$2");
         normalized = Regex.Replace(normalized, @"\${1,2}([^$]+?)\${1,2}", "$1");
+        normalized = Regex.Replace(normalized, @"\^\{?2\}?", "²");
+        normalized = Regex.Replace(normalized, @"\^\{?3\}?", "³");
+        normalized = Regex.Replace(normalized, @"\^\{([^{}]+)\}", "^$1");
+        normalized = Regex.Replace(normalized, @"_\{([^{}]+)\}", "_$1");
 
         return normalized
             .Replace(@"\times", "×", StringComparison.Ordinal)
             .Replace(@"\div", "÷", StringComparison.Ordinal)
             .Replace(@"\cdot", "·", StringComparison.Ordinal)
+            .Replace(@"\leq", "≤", StringComparison.Ordinal)
             .Replace(@"\le", "≤", StringComparison.Ordinal)
+            .Replace(@"\geq", "≥", StringComparison.Ordinal)
             .Replace(@"\ge", "≥", StringComparison.Ordinal)
             .Replace(@"\neq", "≠", StringComparison.Ordinal)
+            .Replace(@"\approx", "≈", StringComparison.Ordinal)
+            .Replace(@"\pi", "π", StringComparison.Ordinal)
             .Replace("\\", string.Empty, StringComparison.Ordinal);
     }
 }

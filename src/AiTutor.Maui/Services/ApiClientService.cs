@@ -23,6 +23,11 @@ public interface IApiClientService
     /// 上传题目或作业图片到 AiTutor.Api，并返回媒体资源信息。
     /// </summary>
     Task<MediaUploadResultDto> UploadImageAsync(FileResult file, string resourceType, string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 上传内存中的 JPEG 图片字节，主要用于上传裁剪后的题目图片。
+    /// </summary>
+    Task<MediaUploadResultDto> UploadImageBytesAsync(byte[] imageBytes, string fileName, string resourceType, string userId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -37,9 +42,6 @@ public class ApiClientService : IApiClientService
 
     private readonly HttpClient _httpClient;
     private readonly IAppSettingsService _settingsService;
-    private readonly SemaphoreSlim _configureLock = new(1, 1);
-    private bool _isConfigured;
-
     public ApiClientService(HttpClient httpClient, IAppSettingsService settingsService)
     {
         _httpClient = httpClient;
@@ -60,7 +62,7 @@ public class ApiClientService : IApiClientService
 
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync("/api/agent/ask", request, JsonOptions, requestToken);
+            using var response = await _httpClient.PostAsJsonAsync(BuildApiUri(options, "/api/agent/ask"), request, JsonOptions, requestToken);
             return await ReadResponseAsync<AgentResponse>(response, requestToken);
         }
         catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
@@ -91,7 +93,7 @@ public class ApiClientService : IApiClientService
 
         try
         {
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/agent/ask-stream")
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BuildApiUri(options, "/api/agent/ask-stream"))
             {
                 Content = JsonContent.Create(request, options: JsonOptions)
             };
@@ -175,7 +177,7 @@ public class ApiClientService : IApiClientService
             content.Add(new StringContent(userId), "userId");
             content.Add(new StringContent("maui_android_tablet"), "sourceType");
 
-            using var response = await _httpClient.PostAsync("/api/media/upload-image", content, requestToken);
+            using var response = await _httpClient.PostAsync(BuildApiUri(options, "/api/media/upload-image"), content, requestToken);
             return await ReadResponseAsync<MediaUploadResultDto>(response, requestToken);
         }
         catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
@@ -189,34 +191,61 @@ public class ApiClientService : IApiClientService
     }
 
     /// <summary>
+    /// 上传裁剪后的 JPEG 字节到 POST /api/media/upload-image。
+    /// </summary>
+    /// <param name="imageBytes">裁剪后的 JPEG 图片字节。</param>
+    /// <param name="fileName">上传文件名。</param>
+    /// <param name="resourceType">业务资源类型。</param>
+    /// <param name="userId">当前学生用户 Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>后端媒体资源信息。</returns>
+    public async Task<MediaUploadResultDto> UploadImageBytesAsync(byte[] imageBytes, string fileName, string resourceType, string userId, CancellationToken cancellationToken = default)
+    {
+        if (imageBytes.Length == 0)
+        {
+            throw new InvalidOperationException("裁剪后的图片为空。");
+        }
+
+        var options = await ConfigureHttpClientAsync(cancellationToken);
+        using var timeoutCts = CreateTimeoutTokenSource(options, cancellationToken);
+        var requestToken = timeoutCts.Token;
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            using var fileContent = new ByteArrayContent(imageBytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+            content.Add(fileContent, "file", fileName);
+            content.Add(new StringContent(resourceType), "resourceType");
+            content.Add(new StringContent(userId), "userId");
+            content.Add(new StringContent("maui_android_tablet_cropped"), "sourceType");
+
+            using var response = await _httpClient.PostAsync(BuildApiUri(options, "/api/media/upload-image"), content, requestToken);
+            return await ReadResponseAsync<MediaUploadResultDto>(response, requestToken);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("裁剪图片上传超时了，请稍后再试。", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException("裁剪图片上传失败，请检查 AiTutor.Api 是否正在运行。", ex);
+        }
+    }
+
+    /// <summary>
     /// 根据配置初始化 HttpClient 的 BaseAddress。HttpClient 发起请求后不能再修改 Timeout 等属性。
     /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>当前 API 配置，用于本次请求超时控制。</returns>
     private async Task<ApiClientOptions> ConfigureHttpClientAsync(CancellationToken cancellationToken)
     {
-        var options = await _settingsService.GetApiOptionsAsync(cancellationToken);
+        return await _settingsService.GetApiOptionsAsync(cancellationToken);
+    }
 
-        if (_isConfigured)
-        {
-            return options;
-        }
-
-        await _configureLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (!_isConfigured)
-            {
-                _httpClient.BaseAddress = new Uri(options.BaseUrl);
-                _isConfigured = true;
-            }
-        }
-        finally
-        {
-            _configureLock.Release();
-        }
-
-        return options;
+    private static Uri BuildApiUri(ApiClientOptions options, string path)
+    {
+        return new Uri(new Uri(options.BaseUrl.TrimEnd('/') + "/"), path.TrimStart('/'));
     }
 
     /// <summary>

@@ -64,6 +64,6 @@
                 </CollectionView>
             </Grid>
         </Grid>
-        <controls:LoadingOverlay Grid.RowSpan="2" IsLoading="{Binding IsBusy}" LoadingText="AI老师正在检查..." />
+        <controls:LoadingOverlay Grid.RowSpan="2" IsLoading="{Binding IsBlockingLoading}" LoadingText="AI老师正在检查..." />
     </Grid>
 </ContentPage>

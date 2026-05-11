@@ -31,3 +31,4 @@ logs/
 *.apk
 *.aab
 *.keystore
+/src/AiTutor.Api/wwwroot

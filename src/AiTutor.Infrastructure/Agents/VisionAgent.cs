@@ -29,8 +29,7 @@ public class VisionAgent : IStreamingAgent
     public async Task<AgentResponse> ExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default)
     {
         var answer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), cancellationToken);
-        var response = CreateResponse(route, answer);
-        return response;
+        return CreateResponse(route, answer);
     }
 
     /// <summary>
@@ -56,18 +55,34 @@ public class VisionAgent : IStreamingAgent
     }
 
     /// <summary>
-    /// 渲染图片讲题 Prompt。
+    /// 渲染图片讲题 Prompt。基础要求来自 PromptTemplateService，本次前端指令只作为补充约束。
     /// </summary>
     /// <param name="request">图片讲题请求。</param>
     /// <returns>渲染后的 Prompt。</returns>
     private string BuildPrompt(AgentRequest request)
     {
-        return _promptTemplateService.Render("vision_question_explain", new Dictionary<string, string?>
+        var templatePrompt = _promptTemplateService.Render("vision_question_explain", new Dictionary<string, string?>
         {
             ["imageUrl"] = request.ImageUrl,
             ["subject"] = request.Subject,
             ["grade"] = request.Grade
         });
+
+        if (string.IsNullOrWhiteSpace(request.QuestionText))
+        {
+            return templatePrompt;
+        }
+
+        return $"""
+            {templatePrompt}
+
+            本次前端指令：
+            {request.QuestionText}
+
+            请优先遵守本次前端指令，只讲解用户框选后的这一道题。
+            请尽快开始输出，先识别题目，再分步骤讲解。
+            数学公式尽量使用普通文本或简单 LaTeX，例如 4 m、16 m²、1/2，不要使用复杂排版命令。
+            """;
     }
 
     /// <summary>
