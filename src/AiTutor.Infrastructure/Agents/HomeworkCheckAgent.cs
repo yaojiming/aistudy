@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AiTutor.Core.Interfaces;
 using AiTutor.Shared.Agent;
 
@@ -19,26 +20,12 @@ public class HomeworkCheckAgent : IStreamingAgent
 
     public string Name => "HomeworkCheckAgent";
 
-    /// <summary>
-    /// 执行非流式作业检查，供普通 Agent 接口使用。
-    /// </summary>
-    /// <param name="request">包含作业图片路径的请求。</param>
-    /// <param name="route">Agent 路由结果。</param>
-    /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>包含作业检查结构化结果的完整响应。</returns>
     public async Task<AgentResponse> ExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default)
     {
         var modelAnswer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), cancellationToken);
         return CreateResponse(route, modelAnswer);
     }
 
-    /// <summary>
-    /// 执行真实流式作业检查，先流式展示视觉模型判断，再在 final 中返回结构化结果。
-    /// </summary>
-    /// <param name="request">包含作业图片路径与 ThinkingMode 的请求。</param>
-    /// <param name="route">Agent 路由结果。</param>
-    /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>delta 文本片段和最终作业检查响应。</returns>
     public async IAsyncEnumerable<AgentStreamChunkDto> StreamExecuteAsync(
         AgentRequest request,
         AgentRouteResult route,
@@ -54,11 +41,6 @@ public class HomeworkCheckAgent : IStreamingAgent
         yield return new AgentStreamChunkDto { Type = "final", FinalResponse = CreateResponse(route, answerText) };
     }
 
-    /// <summary>
-    /// 渲染作业检查 Prompt。
-    /// </summary>
-    /// <param name="request">作业检查请求。</param>
-    /// <returns>渲染后的 Prompt。</returns>
     private string BuildPrompt(AgentRequest request)
     {
         return _promptTemplateService.Render("homework_check", new Dictionary<string, string?>
@@ -69,27 +51,132 @@ public class HomeworkCheckAgent : IStreamingAgent
         });
     }
 
-    /// <summary>
-    /// 组装作业检查响应，当前结构化 DTO 保持 Mock，文本部分使用真实视觉模型输出。
-    /// </summary>
-    /// <param name="route">Agent 路由结果。</param>
-    /// <param name="modelAnswer">视觉模型输出文本。</param>
-    /// <returns>统一 AgentResponse。</returns>
     private static AgentResponse CreateResponse(AgentRouteResult route, string modelAnswer)
     {
-        var result = CreateStructuredMockResult();
+        var result = TryParseHomeworkResult(modelAnswer) ?? CreateStructuredMockResult();
         var response = ResponseFactory.Create(route, modelAnswer, canAddToWrongBook: true);
         response.OutputType = "structured_json";
         response.HomeworkCheckResult = result;
         response.AnswerJson = result;
-        response.Suggestions.Add(new SuggestionDto { Text = "练习乘法口诀", Action = "practice_generate" });
+        response.Suggestions.Add(new SuggestionDto { Text = "练习同类题", Action = "practice_generate" });
         return response;
     }
 
-    /// <summary>
-    /// 创建 MVP 阶段稳定的作业检查结构化结果，保证保存 HomeworkCheckItem 和 WrongQuestion 链路可验证。
-    /// </summary>
-    /// <returns>作业检查 DTO。</returns>
+    private static HomeworkCheckResultDto? TryParseHomeworkResult(string modelAnswer)
+    {
+        if (string.IsNullOrWhiteSpace(modelAnswer))
+        {
+            return null;
+        }
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+        // 策略 1：尝试提取 markdown ```json ... ``` 代码块
+        var fenceStart = modelAnswer.IndexOf("```json", StringComparison.OrdinalIgnoreCase);
+        if (fenceStart >= 0)
+        {
+            var contentStart = modelAnswer.IndexOf('\n', fenceStart) + 1;
+            var fenceEnd = modelAnswer.IndexOf("```", contentStart, StringComparison.Ordinal);
+            if (fenceEnd > contentStart)
+            {
+                var blockJson = modelAnswer[contentStart..fenceEnd].Trim();
+                var blockResult = TryDeserialize(blockJson, options);
+                if (blockResult is not null)
+                {
+                    return blockResult;
+                }
+            }
+        }
+
+        // 策略 2：尝试提取 ``` ... ``` 通用代码块
+        var genericFenceStart = modelAnswer.IndexOf("\n```", StringComparison.Ordinal);
+        if (genericFenceStart >= 0)
+        {
+            var contentStart = modelAnswer.IndexOf('\n', genericFenceStart + 1) + 1;
+            var fenceEnd = modelAnswer.IndexOf("```", contentStart, StringComparison.Ordinal);
+            if (fenceEnd > contentStart)
+            {
+                var blockJson = modelAnswer[contentStart..fenceEnd].Trim();
+                var blockResult = TryDeserialize(blockJson, options);
+                if (blockResult is not null)
+                {
+                    return blockResult;
+                }
+            }
+        }
+
+        // 策略 3：在模型输出末尾部分寻找 { ... } JSON（模型经常在文本后附加 JSON）
+        var jsonStart = modelAnswer.LastIndexOf("{\n", StringComparison.Ordinal);
+        if (jsonStart < 0)
+        {
+            jsonStart = modelAnswer.LastIndexOf("{ \"", StringComparison.Ordinal);
+        }
+
+        if (jsonStart >= 0)
+        {
+            var jsonEnd = modelAnswer.LastIndexOf('}');
+            if (jsonEnd > jsonStart)
+            {
+                var json = modelAnswer[jsonStart..(jsonEnd + 1)];
+                var result = TryDeserialize(json, options);
+                if (result is not null)
+                {
+                    return result;
+                }
+            }
+        }
+
+        // 策略 4：全文搜索 { 到 } 作为最后备选
+        var firstBrace = modelAnswer.IndexOf('{');
+        var lastBrace = modelAnswer.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
+        {
+            var json = modelAnswer[firstBrace..(lastBrace + 1)];
+            return TryDeserialize(json, options);
+        }
+
+        return null;
+    }
+
+    private static HomeworkCheckResultDto? TryDeserialize(string json, JsonSerializerOptions options)
+    {
+        try
+        {
+            var result = JsonSerializer.Deserialize<HomeworkCheckResultDto>(json, options);
+            if (result?.Items is { Count: > 0 })
+            {
+                // 清理模型输出中可能的格式问题
+                foreach (var item in result.Items)
+                {
+                    item.QuestionNo  = CleanJsonString(item.QuestionNo);
+                    item.QuestionText = CleanJsonString(item.QuestionText);
+                    item.StudentAnswer = CleanJsonString(item.StudentAnswer);
+                    item.CorrectAnswer = CleanJsonString(item.CorrectAnswer);
+                    item.ErrorReason = CleanJsonString(item.ErrorReason);
+                    item.Explanation = CleanJsonString(item.Explanation);
+                }
+
+                result.TotalCount = result.Items.Count;
+                result.CorrectCount = result.Items.Count(i => i.IsCorrect == true);
+                result.WrongCount = result.Items.Count(i => i.IsCorrect == false);
+                return result;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static string CleanJsonString(string? value)
+    {
+        return (value ?? string.Empty)
+            .Replace("\\n", "\n")
+            .Replace("\\\"", "\"")
+            .Trim();
+    }
+
     private static HomeworkCheckResultDto CreateStructuredMockResult()
     {
         return new HomeworkCheckResultDto

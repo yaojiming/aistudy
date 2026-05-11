@@ -24,6 +24,28 @@ public sealed class AndroidOcrService : IOcrService
         _logger = logger;
     }
 
+    public async System.Threading.Tasks.Task WarmUpAsync()
+    {
+        try
+        {
+            // 创建 1 像素的纯黑 PNG 作为预热输入，触发 MLKit TFLite 模型加载
+            var warmupPath = Path.Combine(FileSystem.CacheDirectory, "aitutor-ocr-warmup.png");
+            var warmupBytes = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPj/HwADBwIAMCbHYQAAAABJRU5ErkJggg==");
+            await File.WriteAllBytesAsync(warmupPath, warmupBytes);
+
+            _logger.LogInformation("OCR 模型预热开始...");
+            await RecognizeLinesAsync(warmupPath);
+            _logger.LogInformation("OCR 模型预热完成。");
+
+            try { File.Delete(warmupPath); } catch { }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OCR 模型预热失败，首次使用时将正常加载。");
+        }
+    }
+
     public async Task<IReadOnlyList<OcrLineInfo>> RecognizeLinesAsync(string imagePath)
     {
         if (!File.Exists(imagePath))

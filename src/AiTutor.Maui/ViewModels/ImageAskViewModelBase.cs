@@ -22,6 +22,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     private readonly ILogger<ImageAskViewModelBase>? _logger;
     private readonly IAppSettingsService? _settingsService;
     private readonly List<HomeworkResultItemViewModel> _allHomeworkItems = [];
+    protected IReadOnlyList<HomeworkResultItemViewModel> AllHomeworkItems => _allHomeworkItems;
     private FileResult? _selectedFile;
     private string? _selectedImagePath;
     private ImageSource? _previewImage;
@@ -37,6 +38,8 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     private bool _hasShownThinkingProgress;
     private bool _isBlockingLoading;
     private string _answerStreamText = string.Empty;
+    private HomeworkResultItemViewModel? _selectedHomeworkItem;
+    private Dictionary<string, bool?>? _regionResults;
 
     protected ImageAskViewModelBase(
         IApiClientService apiClientService,
@@ -96,6 +99,26 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     public ObservableCollection<HomeworkResultItemViewModel> HomeworkItems { get; } = [];
     public ObservableCollection<QuestionRegion> QuestionRegions { get; } = [];
 
+    public HomeworkResultItemViewModel? SelectedHomeworkItem
+    {
+        get => _selectedHomeworkItem;
+        set
+        {
+            if (SetProperty(ref _selectedHomeworkItem, value))
+            {
+                OnPropertyChanged(nameof(HasSelectedHomeworkItem));
+            }
+        }
+    }
+
+    public bool HasSelectedHomeworkItem => SelectedHomeworkItem is not null;
+
+    public Dictionary<string, bool?>? RegionResults
+    {
+        get => _regionResults;
+        set => SetProperty(ref _regionResults, value);
+    }
+
     public ICommand PickImageCommand { get; }
     public ICommand CapturePhotoCommand { get; }
     public ICommand SubmitCommand { get; }
@@ -105,10 +128,13 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     public ICommand AddWrongCommand { get; } = new AsyncCommand(() => Shell.Current.DisplayAlert("错题本", "已加入错题本。", "知道了"));
     public ICommand PracticeCommand { get; } = new AsyncCommand(() => Shell.Current.DisplayAlert("同类题", "同类题生成功能已预留。", "知道了"));
 
+    protected string? SelectedImagePath => _selectedImagePath;
+
     protected abstract string Mode { get; }
     protected abstract string ResourceType { get; }
     protected virtual string QuestionText => "请识别图片中的题目，并给出适合小学生理解的分步骤讲解。";
     protected virtual bool EnableQuestionRegionSelection => false;
+    protected virtual bool CropBeforeUpload => true;
 
     private async Task PickImageAsync()
     {
@@ -121,7 +147,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     }
 
     /// <summary>
-    /// 处理用户选择或拍摄的图片，并在拍照讲题模式下自动执行本地 OCR 框选。
+    /// 处理用户选择或拍摄的图片，自动检测倾斜并修正，再执行本地 OCR 框选。
     /// </summary>
     private async Task SetSelectedFileAsync(FileResult? file)
     {
@@ -135,6 +161,27 @@ public abstract class ImageAskViewModelBase : ViewModelBase
         _selectedFile = file;
         _selectedImagePath = await CopyFileToCacheAsync(file);
         _logger?.LogInformation("选择图片路径：{Path}", _selectedImagePath);
+
+        // 自动检测并修正倾斜（独立于 OCR 框选，只要裁剪服务可用就执行）
+        if (_imageCropService is not null)
+        {
+            try
+            {
+                var imagePath = _selectedImagePath;
+                var skewAngle = await Task.Run(() => _imageCropService.DetectSkewAngleAsync(imagePath));
+                if (skewAngle.HasValue && MathF.Abs(skewAngle.Value) > 0.5f)
+                {
+                    ResultText = $"检测到图片倾斜 {skewAngle.Value:F1}°，正在自动旋转...";
+                    var correctedPath = await Task.Run(() => _imageCropService.RotateImageAsync(imagePath, skewAngle.Value));
+                    _selectedImagePath = correctedPath;
+                    _logger?.LogInformation("图片已旋转修正，新路径：{Path}", _selectedImagePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "倾斜检测或旋转失败，使用原图继续。");
+            }
+        }
 
         await using var stream = File.OpenRead(_selectedImagePath);
         using var memory = new MemoryStream();
@@ -181,7 +228,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
 
             UploadProgress = 0.2;
             ResultText = "正在准备题目图片...";
-            var upload = EnableQuestionRegionSelection
+            var upload = EnableQuestionRegionSelection && CropBeforeUpload
                 ? await UploadSelectedQuestionImageAsync()
                 : await _apiClientService.UploadImageAsync(_selectedFile, ResourceType, "test-user");
 
@@ -217,10 +264,10 @@ public abstract class ImageAskViewModelBase : ViewModelBase
                 lock (pendingDeltaLock)
                 {
                     pendingDelta.Append(delta);
-                    var shouldFlush = true;
-                        //!hasReceivedDelta ||
-                        //delta.Contains('\n') ||
-                        //DateTime.UtcNow - lastFlushTime >= TimeSpan.FromMilliseconds(0);
+                    var shouldFlush = 
+                    !hasReceivedDelta ||
+                    delta.Contains('\n') ||
+                    DateTime.UtcNow - lastFlushTime >= TimeSpan.FromMilliseconds(0);
 
                     if (shouldFlush)
                     {
@@ -314,7 +361,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
         }
     }
 
-    protected void LoadHomeworkItems(HomeworkCheckResultDto result)
+    protected async void LoadHomeworkItems(HomeworkCheckResultDto result)
     {
         _allHomeworkItems.Clear();
         foreach (var item in result.Items)
@@ -323,7 +370,10 @@ public abstract class ImageAskViewModelBase : ViewModelBase
         }
 
         RefreshHomeworkItems();
+        await OnHomeworkItemsLoadedAsync();
     }
+
+    protected virtual Task OnHomeworkItemsLoadedAsync() => Task.CompletedTask;
 
     protected void RefreshHomeworkItems()
     {
@@ -336,7 +386,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
 
     protected virtual bool ShouldShowHomeworkItem(HomeworkResultItemViewModel item) => true;
 
-    private Task SelectQuestionRegionAsync(string? regionId)
+    protected virtual Task SelectQuestionRegionAsync(string? regionId)
     {
         if (string.IsNullOrWhiteSpace(regionId))
         {
@@ -347,13 +397,17 @@ public abstract class ImageAskViewModelBase : ViewModelBase
         var region = QuestionRegions.FirstOrDefault(x => x.Id == regionId);
         _logger?.LogInformation("用户选中题目框：{RegionId}, Bounds={Bounds}", regionId, region?.Bounds);
         RegionHintText = region is null ? string.Empty : $"已选择：{region.Title}";
+        OnRegionSelected(regionId);
         return Task.CompletedTask;
     }
 
+    protected virtual void OnRegionSelected(string regionId) { }
+
     /// <summary>
     /// 使用端侧 OCR 识别文字行，并生成可点击的题目区域框。
+    /// 子类可在适当时机调用（如作业检查在 AI 返回结果后再执行 OCR）。
     /// </summary>
-    private async Task ProcessSelectedImageAsync(string imagePath)
+    protected async Task ProcessSelectedImageAsync(string imagePath)
     {
         if (_ocrService is null || _questionRegionBuilder is null || _imageCropService is null)
         {
@@ -611,6 +665,10 @@ public class HomeworkResultItemViewModel
         QuestionNo = item.QuestionNo;
         StatusText = item.IsCorrect == true ? "正确" : "需订正";
         QuestionText = item.QuestionText;
+        CorrectAnswer = item.CorrectAnswer ?? string.Empty;
+        StudentAnswer = item.StudentAnswer ?? string.Empty;
+        ErrorReason = item.ErrorReason ?? string.Empty;
+        Explanation = item.Explanation;
         DetailText = item.IsCorrect == true
             ? item.Explanation
             : $"你的答案：{item.StudentAnswer}  正确答案：{item.CorrectAnswer}\n错因：{item.ErrorReason}\n{item.Explanation}";
@@ -620,6 +678,10 @@ public class HomeworkResultItemViewModel
     public string QuestionNo { get; }
     public string StatusText { get; }
     public string QuestionText { get; }
+    public string CorrectAnswer { get; }
+    public string StudentAnswer { get; }
+    public string ErrorReason { get; }
+    public string Explanation { get; }
     public string DetailText { get; }
     public bool IsWrong { get; }
     public Color CardColor => IsWrong ? Color.FromArgb("#FFF6E8") : Color.FromArgb("#FFFFFF");

@@ -40,6 +40,13 @@ public sealed class QuestionRegionOverlayView : GraphicsView, IDrawable
         0f,
         propertyChanged: OnVisualPropertyChanged);
 
+    public static readonly BindableProperty RegionResultsProperty = BindableProperty.Create(
+        nameof(RegionResults),
+        typeof(IDictionary<string, bool?>),
+        typeof(QuestionRegionOverlayView),
+        null,
+        propertyChanged: OnVisualPropertyChanged);
+
     public static readonly BindableProperty RegionTappedCommandProperty = BindableProperty.Create(
         nameof(RegionTappedCommand),
         typeof(ICommand),
@@ -85,6 +92,12 @@ public sealed class QuestionRegionOverlayView : GraphicsView, IDrawable
         set => SetValue(ImagePixelHeightProperty, value);
     }
 
+    public IDictionary<string, bool?>? RegionResults
+    {
+        get => (IDictionary<string, bool?>?)GetValue(RegionResultsProperty);
+        set => SetValue(RegionResultsProperty, value);
+    }
+
     public ICommand? RegionTappedCommand
     {
         get => (ICommand?)GetValue(RegionTappedCommandProperty);
@@ -97,6 +110,8 @@ public sealed class QuestionRegionOverlayView : GraphicsView, IDrawable
         {
             return;
         }
+
+        var results = RegionResults;
 
         foreach (var region in GetRegions())
         {
@@ -115,7 +130,28 @@ public sealed class QuestionRegionOverlayView : GraphicsView, IDrawable
             var labelRect = new RectF(rect.Left, MathF.Max(0, rect.Top - 24), 72, 22);
             canvas.FillRoundedRectangle(labelRect, 8);
             canvas.DrawString(region.Title, labelRect, HorizontalAlignment.Center, VerticalAlignment.Center);
+
+            // 绘制对错标注：作业检查完成后在区域右上角显示 ✓ 或 ✗
+            if (results is not null && results.TryGetValue(region.Id, out var isCorrect) && isCorrect.HasValue)
+            {
+                DrawResultBadge(canvas, rect, isCorrect.Value);
+            }
         }
+    }
+
+    private static void DrawResultBadge(ICanvas canvas, RectF regionRect, bool isCorrect)
+    {
+        var badgeSize = 28f;
+        var badgeX = regionRect.Right - badgeSize - 4;
+        var badgeY = regionRect.Top + 4;
+        var badgeRect = new RectF(badgeX, badgeY, badgeSize, badgeSize);
+
+        canvas.FillColor = isCorrect ? Color.FromArgb("#16A34A") : Color.FromArgb("#DC2626");
+        canvas.FillRoundedRectangle(badgeRect, badgeSize / 2);
+
+        canvas.FontColor = Colors.White;
+        canvas.FontSize = 17;
+        canvas.DrawString(isCorrect ? "✓" : "✗", badgeRect, HorizontalAlignment.Center, VerticalAlignment.Center);
     }
 
     private void OnTapped(object? sender, TappedEventArgs e)

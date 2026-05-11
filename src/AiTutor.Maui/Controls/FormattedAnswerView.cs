@@ -168,8 +168,13 @@ public sealed class FormattedAnswerView : ContentView
                     document.documentElement.style.setProperty('--answer-font-size', {{fontSizeJson}});
                     answer.innerHTML = {{bodyJson}};
 
-                    const scrollToBottom = function () {
-                        window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
+                    const doScroll = function () {
+                        requestAnimationFrame(() => {
+                            const anchor = document.getElementById('scroll-anchor');
+                            if (anchor) {
+                                anchor.scrollIntoView({ behavior: 'instant', block: 'end' });
+                            }
+                        });
                     };
 
                     if (window.MathJax && MathJax.typesetPromise) {
@@ -177,9 +182,9 @@ public sealed class FormattedAnswerView : ContentView
                             MathJax.typesetClear([answer]);
                         }
 
-                        MathJax.typesetPromise([answer]).then(scrollToBottom).catch(scrollToBottom);
+                        MathJax.typesetPromise([answer]).then(doScroll).catch(doScroll);
                     } else {
-                        scrollToBottom();
+                        doScroll();
                     }
 
                     return 'ok';
@@ -321,6 +326,7 @@ public sealed class FormattedAnswerView : ContentView
             </head>
             <body>
               <main id="answer"></main>
+              <div id="scroll-anchor" style="height:1px;"></div>
             </body>
             </html>
             """;

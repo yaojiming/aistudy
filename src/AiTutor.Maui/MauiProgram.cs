@@ -36,7 +36,14 @@ public static class MauiProgram
         builder.Services.AddTransient<HomeViewModel>();
         builder.Services.AddTransient<ChatViewModel>();
         builder.Services.AddTransient<PhotoQuestionViewModel>();
-        builder.Services.AddTransient<HomeworkCheckViewModel>();
+        builder.Services.AddTransient<HomeworkCheckViewModel>(sp => new HomeworkCheckViewModel(
+            sp.GetRequiredService<IApiClientService>(),
+            sp.GetRequiredService<ITabletMediaPickerService>(),
+            sp.GetRequiredService<IAppSettingsService>(),
+            sp.GetRequiredService<IOcrService>(),
+            sp.GetRequiredService<IQuestionRegionBuilder>(),
+            sp.GetRequiredService<IImageCropService>(),
+            sp.GetRequiredService<ILogger<ImageAskViewModelBase>>()));
         builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddSingleton<WrongBookViewModel>();
         builder.Services.AddTransient<WrongQuestionDetailViewModel>();
@@ -49,6 +56,22 @@ public static class MauiProgram
         builder.Services.AddTransient<WrongBookPage>();
         builder.Services.AddTransient<WrongQuestionDetailPage>();
 
-        return builder.Build();
+        var app = builder.Build();
+
+        // 后台预热 OCR 模型，避免首次拍照/选图时 UI 卡顿
+        Task.Run(async () =>
+        {
+            try
+            {
+                var ocrService = app.Services.GetRequiredService<IOcrService>();
+                await ocrService.WarmUpAsync();
+            }
+            catch
+            {
+                // 预热失败不影响正常使用
+            }
+        });
+
+        return app;
     }
 }

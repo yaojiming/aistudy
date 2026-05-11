@@ -13,4 +13,9 @@ public interface IOcrService
     /// <param name="imagePath">本地图片路径。</param>
     /// <returns>原图像素坐标系下的 OCR 行。</returns>
     Task<IReadOnlyList<OcrLineInfo>> RecognizeLinesAsync(string imagePath);
+
+    /// <summary>
+    /// 预加载 OCR 模型，避免首次调用时阻塞 UI。
+    /// </summary>
+    Task WarmUpAsync();
 }
