@@ -54,10 +54,17 @@ public class HomeworkCheckViewModel : ImageAskViewModelBase
         {
             if (SetProperty(ref _isThinkingComplete, value))
             {
+                OnPropertyChanged(nameof(ThinkingFontSize));
+                OnPropertyChanged(nameof(ThinkingTextColor));
+                OnPropertyChanged(nameof(ThinkingMaxHeight));
                 TriggerScrollToBottom();
             }
         }
     }
+
+    public double ThinkingFontSize => _isThinkingComplete ? 14d : 16d;
+    public Color ThinkingTextColor => _isThinkingComplete ? Color.FromArgb("#94A3B8") : Color.FromArgb("#334155");
+    public double ThinkingMaxHeight => _isThinkingComplete ? 250d : double.PositiveInfinity;
 
     public bool ShowThinkingDetails
     {

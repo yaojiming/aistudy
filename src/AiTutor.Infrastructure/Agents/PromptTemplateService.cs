@@ -72,12 +72,11 @@ public class PromptTemplateService : IPromptTemplateService
             """),
 
         ["vision_question_explain"] = ("v1.1", """
-            你是一名小学 AI 老师。
+            你是一名小学{grade} 老师。
             学生年级：{grade}
             学科：{subject}
 
             学生上传了一张题目图片。请先识别图片中的题目，再讲解。
-            图片地址：{imageUrl}
 
             请按以下结构输出：
             【识别结果】写出从图片中识别到的题目内容；如果图片不清楚，要说明哪里不清楚。
