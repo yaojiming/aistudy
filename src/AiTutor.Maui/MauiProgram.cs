@@ -27,6 +27,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IOcrService, AndroidOcrService>();
         builder.Services.AddSingleton<IQuestionRegionBuilder, QuestionRegionBuilder>();
         builder.Services.AddSingleton<IImageCropService, ImageCropService>();
+        builder.Services.AddSingleton<IImageOrientationService, ImageOrientationService>();
+        builder.Services.AddSingleton<IAiQuestionRegionDetector, AiQuestionRegionDetector>();
+        builder.Services.AddSingleton<IHomeworkQuestionDetectService, HomeworkQuestionDetectService>();
+        builder.Services.AddSingleton<IHomeworkCheckWorkflowService, ApiHomeworkCheckWorkflowService>();
+        builder.Services.AddSingleton<IWrongBookService, LocalWrongBookService>();
         builder.Services.AddSingleton(_ => new HttpClient
         {
             Timeout = Timeout.InfiniteTimeSpan

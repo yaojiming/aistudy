@@ -103,18 +103,23 @@ public sealed class QuestionRegionOverlayView : GraphicsView, IDrawable
             var rect = ImageCoordinateMapper.ImageRectToViewRect(region.Bounds, ImagePixelWidth, ImagePixelHeight, dirtyRect.Width, dirtyRect.Height);
             var isSelected = string.Equals(region.Id, SelectedRegionId, StringComparison.Ordinal);
 
-            canvas.StrokeColor = isSelected ? Color.FromArgb("#38BDF8") : Color.FromArgb("#FDE68A");
-            canvas.StrokeSize = isSelected ? 4 : 2;
-            canvas.FillColor = isSelected ? Color.FromRgba(56, 189, 248, 42) : Color.FromRgba(253, 230, 138, 30);
+            var strokeColor = GetStrokeColor(region, isSelected);
+            canvas.StrokeColor = strokeColor;
+            canvas.StrokeSize = isSelected ? 5 : region.Status == HomeworkQuestionStatus.Checking ? 4 : 2;
+            canvas.FillColor = isSelected
+                ? Color.FromRgba(56, 189, 248, 44)
+                : GetFillColor(region);
             canvas.FillRoundedRectangle(rect, 10);
             canvas.DrawRoundedRectangle(rect, 10);
 
             canvas.FontColor = Colors.White;
             canvas.FontSize = 13;
-            canvas.FillColor = isSelected ? Color.FromArgb("#0284C7") : Color.FromArgb("#92400E");
+            canvas.FillColor = isSelected ? Color.FromArgb("#0284C7") : GetLabelColor(region);
             var labelRect = new RectF(rect.Left, MathF.Max(0, rect.Top - 24), 72, 22);
             canvas.FillRoundedRectangle(labelRect, 8);
             canvas.DrawString(region.Title, labelRect, HorizontalAlignment.Center, VerticalAlignment.Center);
+
+            DrawStatusBadge(canvas, region, rect);
         }
     }
 
@@ -178,5 +183,71 @@ public sealed class QuestionRegionOverlayView : GraphicsView, IDrawable
     private void OnRegionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         Invalidate();
+    }
+
+    private static Color GetStrokeColor(QuestionRegion region, bool isSelected)
+    {
+        if (isSelected)
+        {
+            return Color.FromArgb("#38BDF8");
+        }
+
+        return region.Status switch
+        {
+            HomeworkQuestionStatus.Checking => Color.FromArgb("#F59E0B"),
+            HomeworkQuestionStatus.Correct => Color.FromArgb("#22C55E"),
+            HomeworkQuestionStatus.Wrong => Color.FromArgb("#EF4444"),
+            HomeworkQuestionStatus.Uncertain => Color.FromArgb("#A3A3A3"),
+            _ => Color.FromArgb("#60A5FA")
+        };
+    }
+
+    private static Color GetFillColor(QuestionRegion region)
+    {
+        return region.Status switch
+        {
+            HomeworkQuestionStatus.Checking => Color.FromRgba(245, 158, 11, 40),
+            HomeworkQuestionStatus.Correct => Color.FromRgba(34, 197, 94, 34),
+            HomeworkQuestionStatus.Wrong => Color.FromRgba(239, 68, 68, 34),
+            HomeworkQuestionStatus.Uncertain => Color.FromRgba(163, 163, 163, 34),
+            _ => Color.FromRgba(96, 165, 250, 30)
+        };
+    }
+
+    private static Color GetLabelColor(QuestionRegion region)
+    {
+        return region.Status switch
+        {
+            HomeworkQuestionStatus.Checking => Color.FromArgb("#B45309"),
+            HomeworkQuestionStatus.Correct => Color.FromArgb("#15803D"),
+            HomeworkQuestionStatus.Wrong => Color.FromArgb("#B91C1C"),
+            HomeworkQuestionStatus.Uncertain => Color.FromArgb("#525252"),
+            _ => Color.FromArgb("#2563EB")
+        };
+    }
+
+    private static void DrawStatusBadge(ICanvas canvas, QuestionRegion region, RectF rect)
+    {
+        var badgeText = region.Status switch
+        {
+            HomeworkQuestionStatus.Checking => "...",
+            HomeworkQuestionStatus.Correct => "✓",
+            HomeworkQuestionStatus.Wrong => "×",
+            HomeworkQuestionStatus.Uncertain => "?",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrEmpty(badgeText))
+        {
+            return;
+        }
+
+        var badgeSize = 28f;
+        var badgeRect = new RectF(rect.Right - badgeSize - 4, rect.Top + 4, badgeSize, badgeSize);
+        canvas.FillColor = GetLabelColor(region);
+        canvas.FillEllipse(badgeRect);
+        canvas.FontColor = Colors.White;
+        canvas.FontSize = 18;
+        canvas.DrawString(badgeText, badgeRect, HorizontalAlignment.Center, VerticalAlignment.Center);
     }
 }

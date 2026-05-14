@@ -23,10 +23,37 @@
             <Label Text="{Binding QuestionText, Source={x:Reference Root}}" FontSize="16" LineHeight="1.16" TextColor="#334155" />
             <Label Text="{Binding DetailText, Source={x:Reference Root}}" FontSize="14" TextColor="#64748B" LineHeight="1.16" />
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-                <Button Text="查看讲解" FontSize="13" FontAttributes="Bold" HeightRequest="38" CornerRadius="13" BackgroundColor="#EFF6FF" TextColor="#2563EB" Command="{Binding ExplainCommand, Source={x:Reference Root}}" />
-                <Button Grid.Column="1" Text="加入错题本" FontSize="13" FontAttributes="Bold" HeightRequest="38" CornerRadius="13" BackgroundColor="#FFF1F2" TextColor="#E11D48" Command="{Binding AddWrongCommand, Source={x:Reference Root}}" />
-                <Button Grid.Column="2" Text="生成同类题" FontSize="13" FontAttributes="Bold" HeightRequest="38" CornerRadius="13" BackgroundColor="#F0FDFA" TextColor="#0F766E" Command="{Binding PracticeCommand, Source={x:Reference Root}}" />
+                <Button Text="查看讲解"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        HeightRequest="38"
+                        CornerRadius="13"
+                        BackgroundColor="#EFF6FF"
+                        TextColor="#2563EB"
+                        Command="{Binding ExplainCommand, Source={x:Reference Root}}"
+                        CommandParameter="{Binding ExplainCommandParameter, Source={x:Reference Root}}" />
+                <Button Grid.Column="1"
+                        Text="加入错题本"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        HeightRequest="38"
+                        CornerRadius="13"
+                        BackgroundColor="#FFF1F2"
+                        TextColor="#E11D48"
+                        Command="{Binding AddWrongCommand, Source={x:Reference Root}}"
+                        CommandParameter="{Binding AddWrongCommandParameter, Source={x:Reference Root}}" />
+                <Button Grid.Column="2"
+                        Text="生成同类题"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        HeightRequest="38"
+                        CornerRadius="13"
+                        BackgroundColor="#F0FDFA"
+                        TextColor="#0F766E"
+                        Command="{Binding PracticeCommand, Source={x:Reference Root}}"
+                        CommandParameter="{Binding PracticeCommandParameter, Source={x:Reference Root}}" />
             </Grid>
         </VerticalStackLayout>
     </Border>
 </ContentView>
+

@@ -86,12 +86,19 @@ public class GlmVisionModelProvider : IVisionModelProvider
                 stream = false
             };
 
-            using var response = await _httpClient.PostAsJsonAsync(endpoint, payload, timeoutCts.Token);
-            var responseText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            using var response = await SendWithRateLimitRetryAsync(
+                () => _httpClient.PostAsJsonAsync(endpoint, payload, timeoutCts.Token),
+                timeoutCts.Token);
+             var responseText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
 
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("GLM vision call failed. StatusCode={StatusCode}, Body={Body}", response.StatusCode, TruncateForLog(responseText));
+                if (IsRateLimited(response))
+                {
+                    return "GLM 视觉模型当前请求过于频繁或额度受限，请稍后再试。可以先等待 1 分钟，或临时切回 Mock 模式继续测试。";
+                }
+
                 return $"GLM 视觉模型调用失败，状态码：{(int)response.StatusCode}。请稍后再试，或切回 Mock 模式继续测试。";
             }
 
@@ -194,6 +201,12 @@ public class GlmVisionModelProvider : IVisionModelProvider
         {
             var errorText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
             _logger.LogWarning("GLM vision stream call failed. StatusCode={StatusCode}, Body={Body}", response.StatusCode, TruncateForLog(errorText));
+            if (IsRateLimited(response))
+            {
+                yield return "GLM 视觉模型当前请求过于频繁或额度受限，请稍后再试。可以先等待 1 分钟，或临时切回 Mock 模式继续测试。";
+                yield break;
+            }
+
             yield return await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
             yield break;
         }
@@ -405,6 +418,58 @@ public class GlmVisionModelProvider : IVisionModelProvider
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         return timeoutCts;
+    }
+
+    private async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(
+        Func<Task<HttpResponseMessage>> sendAsync,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var response = await sendAsync();
+            if (!IsRateLimited(response) || attempt == maxAttempts)
+            {
+                return response;
+            }
+
+            var delay = GetRetryDelay(response, attempt);
+            _logger.LogWarning(
+                "GLM vision call rate limited. Attempt={Attempt}/{MaxAttempts}, DelayMs={DelayMs}",
+                attempt,
+                maxAttempts,
+                delay.TotalMilliseconds);
+
+            response.Dispose();
+            await Task.Delay(delay, cancellationToken);
+        }
+
+        throw new InvalidOperationException("GLM 视觉模型限流重试状态异常。");
+    }
+
+    private static bool IsRateLimited(HttpResponseMessage response)
+    {
+        return (int)response.StatusCode == 429;
+    }
+
+    private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } delta && delta > TimeSpan.Zero)
+        {
+            return delta > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : delta;
+        }
+
+        if (response.Headers.RetryAfter?.Date is { } date)
+        {
+            var delay = date - DateTimeOffset.UtcNow;
+            if (delay > TimeSpan.Zero)
+            {
+                return delay > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : delay;
+            }
+        }
+
+        return TimeSpan.FromSeconds(attempt * 5);
     }
 
     /// <summary>

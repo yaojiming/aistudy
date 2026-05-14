@@ -40,4 +40,25 @@ public class HomeworkCheckItemDto
     public string? KnowledgePointName { get; set; }
 
     public string? WrongQuestionId { get; set; }
+
+    /// <summary>
+    /// 题目区域坐标。作业检查场景中由视觉模型返回 normalized_1000 坐标。
+    /// </summary>
+    public HomeworkCheckBBoxDto? BBox { get; set; }
+}
+
+/// <summary>
+/// 题目区域坐标，默认使用 normalized_1000 坐标系。
+/// </summary>
+public class HomeworkCheckBBoxDto
+{
+    public string CoordinateSystem { get; set; } = "normalized_1000";
+
+    public float X1 { get; set; }
+
+    public float Y1 { get; set; }
+
+    public float X2 { get; set; }
+
+    public float Y2 { get; set; }
 }

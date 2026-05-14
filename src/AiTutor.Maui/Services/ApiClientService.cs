@@ -257,7 +257,7 @@ public class ApiClientService : IApiClientService
     private static CancellationTokenSource CreateTimeoutTokenSource(ApiClientOptions options, CancellationToken cancellationToken)
     {
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 5, 300)));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 5, 900)));
         return timeoutCts;
     }
 

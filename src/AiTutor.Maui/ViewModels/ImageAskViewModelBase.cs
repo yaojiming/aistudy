@@ -37,6 +37,10 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     private bool _hasShownThinkingProgress;
     private bool _isBlockingLoading;
     private string _answerStreamText = string.Empty;
+    private readonly StringBuilder _answerBuilder = new();
+    private readonly object _answerBuilderLock = new();
+    private bool _uiFlushScheduled;
+    private bool _isStreamingAnswer;
 
     protected ImageAskViewModelBase(
         IApiClientService apiClientService,
@@ -77,6 +81,11 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     /// 只控制“准备图片/上传图片”阶段的遮罩；模型开始流式输出后会关闭遮罩，让答案区域实时可见。
     /// </summary>
     public bool IsBlockingLoading { get => _isBlockingLoading; set => SetProperty(ref _isBlockingLoading, value); }
+
+    /// <summary>
+    /// AI 回答是否处于流式输出阶段。流式阶段前端只做纯文本轻量刷新，结束后再统一渲染 Markdown/LaTeX。
+    /// </summary>
+    public bool IsStreamingAnswer { get => _isStreamingAnswer; set => SetProperty(ref _isStreamingAnswer, value); }
 
     public string RegionHintText
     {
@@ -188,12 +197,11 @@ public abstract class ImageAskViewModelBase : ViewModelBase
             UploadProgress = 0.65;
             ResultText = "AI老师正在读题...\n\n";
             _hasShownThinkingProgress = false;
-            _answerStreamText = string.Empty;
+            ResetAnswerBuffer();
+            IsStreamingAnswer = false;
             _allHomeworkItems.Clear();
             HomeworkItems.Clear();
             var hasReceivedDelta = false;
-
-            IsBlockingLoading = false;
 
             var request = new AgentRequest
             {
@@ -207,69 +215,23 @@ public abstract class ImageAskViewModelBase : ViewModelBase
                 ImageUrl = upload.FilePath
             };
 
-            var pendingDelta = new StringBuilder();
-            var pendingDeltaLock = new object();
-            var lastFlushTime = DateTime.UtcNow;
-
             var finalResponse = await Task.Run(() => _apiClientService.AskStreamAsync(request, async delta =>
             {
-                string? textToFlush = null;
-                lock (pendingDeltaLock)
-                {
-                    pendingDelta.Append(delta);
-                    var shouldFlush = true;
-                        //!hasReceivedDelta ||
-                        //delta.Contains('\n') ||
-                        //DateTime.UtcNow - lastFlushTime >= TimeSpan.FromMilliseconds(0);
-
-                    if (shouldFlush)
-                    {
-                        textToFlush = pendingDelta.ToString();
-                        pendingDelta.Clear();
-                        lastFlushTime = DateTime.UtcNow;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(textToFlush))
-                {
-                    return;
-                }
-
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     if (!hasReceivedDelta)
                     {
                         ResultText = string.Empty;
+                        IsBlockingLoading = false;
+                        IsStreamingAnswer = true;
                         hasReceivedDelta = true;
                     }
-
-                    AppendResultDelta(textToFlush);
                 });
+
+                AppendResultDelta(delta);
             }), CancellationToken.None);
 
-            string? remainingDelta = null;
-            lock (pendingDeltaLock)
-            {
-                if (pendingDelta.Length > 0)
-                {
-                    remainingDelta = pendingDelta.ToString();
-                    pendingDelta.Clear();
-                }
-            }
-
-            if (!string.IsNullOrEmpty(remainingDelta))
-            {
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    if (!hasReceivedDelta)
-                    {
-                        ResultText = string.Empty;
-                        hasReceivedDelta = true;
-                    }
-
-                    AppendResultDelta(remainingDelta);
-                });
-            }
+            await FlushAnswerToUiAsync();
 
             var finalVisibleAnswer = string.IsNullOrWhiteSpace(finalResponse?.AnswerText)
                 ? null
@@ -292,6 +254,8 @@ public abstract class ImageAskViewModelBase : ViewModelBase
                 await MainThread.InvokeOnMainThreadAsync(() => ResultText = "AI老师已经完成分析，但没有返回可展示内容，请再试一次。");
             }
 
+            await MainThread.InvokeOnMainThreadAsync(() => IsStreamingAnswer = false);
+
             UploadProgress = 1;
             if (finalResponse?.HomeworkCheckResult is not null)
             {
@@ -309,6 +273,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
         }
         finally
         {
+            IsStreamingAnswer = false;
             IsBlockingLoading = false;
             IsBusy = false;
         }
@@ -475,7 +440,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     }
 
     /// <summary>
-    /// 追加模型流式输出，并对重复的思考进度提示去重。
+    /// 追加模型流式输出，并用短节流合并 UI 刷新，避免 WebView 每个 delta 都重新渲染。
     /// </summary>
     private void AppendResultDelta(string delta)
     {
@@ -494,7 +459,66 @@ public abstract class ImageAskViewModelBase : ViewModelBase
             _hasShownThinkingProgress = true;
         }
 
-        _answerStreamText += delta;
+        lock (_answerBuilderLock)
+        {
+            _answerBuilder.Append(delta);
+        }
+
+        ScheduleAnswerUiFlush();
+    }
+
+    /// <summary>
+    /// 清空本轮回答缓存，确保新一次讲题不会混入上一次的模型输出。
+    /// </summary>
+    private void ResetAnswerBuffer()
+    {
+        lock (_answerBuilderLock)
+        {
+            _answerBuilder.Clear();
+        }
+
+        _answerStreamText = string.Empty;
+        _uiFlushScheduled = false;
+    }
+
+    /// <summary>
+    /// 按 40ms 合并多次 delta，再把可见文本推到 UI，降低 Android WebView 重排频率。
+    /// </summary>
+    private void ScheduleAnswerUiFlush()
+    {
+        lock (_answerBuilderLock)
+        {
+            if (_uiFlushScheduled)
+            {
+                return;
+            }
+
+            _uiFlushScheduled = true;
+        }
+
+        _ = MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            await Task.Delay(40);
+            FlushAnswerToUi();
+        });
+    }
+
+    /// <summary>
+    /// 立即把当前缓存刷新到 UI，用于流式结束前补齐最后一小段未刷新的文本。
+    /// </summary>
+    private Task FlushAnswerToUiAsync()
+    {
+        return MainThread.InvokeOnMainThreadAsync(FlushAnswerToUi);
+    }
+
+    private void FlushAnswerToUi()
+    {
+        lock (_answerBuilderLock)
+        {
+            _answerStreamText = _answerBuilder.ToString();
+            _uiFlushScheduled = false;
+        }
+
         ResultText = ExtractVisibleAnswerText(_answerStreamText);
     }
 

@@ -31,6 +31,13 @@ public sealed class FormattedAnswerView : ContentView
         16d,
         propertyChanged: OnTextChanged);
 
+    public static readonly BindableProperty IsStreamingProperty = BindableProperty.Create(
+        nameof(IsStreaming),
+        typeof(bool),
+        typeof(FormattedAnswerView),
+        false,
+        propertyChanged: OnTextChanged);
+
     private readonly WebView _webView = new()
     {
         BackgroundColor = Colors.Transparent,
@@ -42,6 +49,7 @@ public sealed class FormattedAnswerView : ContentView
     private bool _isDocumentLoaded;
     private int _renderVersion;
     private string _pendingBodyHtml = "<p></p>";
+    private string _pendingPlainText = string.Empty;
 
     public FormattedAnswerView()
     {
@@ -71,6 +79,12 @@ public sealed class FormattedAnswerView : ContentView
         set => SetValue(AnswerFontSizeProperty, value);
     }
 
+    public bool IsStreaming
+    {
+        get => (bool)GetValue(IsStreamingProperty);
+        set => SetValue(IsStreamingProperty, value);
+    }
+
     private static void OnTextChanged(BindableObject bindable, object oldValue, object newValue)
     {
         ((FormattedAnswerView)bindable).UpdateFormattedText();
@@ -80,7 +94,16 @@ public sealed class FormattedAnswerView : ContentView
     /// 灏嗘柊鍐呭鍐欏叆宸叉湁 WebView 鏂囨。锛岄伩鍏嶆瘡涓祦寮?delta 閮介噸鏂板姞杞芥暣椤点€?    /// </summary>
     private async void UpdateFormattedText()
     {
-        _pendingBodyHtml = MarkdownToHtml(NormalizeNewLines(Text ?? string.Empty));
+        var normalizedText = NormalizeNewLines(Text ?? string.Empty);
+        if (IsStreaming)
+        {
+            _pendingPlainText = normalizedText;
+        }
+        else
+        {
+            _pendingBodyHtml = MarkdownToHtml(normalizedText);
+        }
+
         EnsureWebViewDocumentLoaded();
 
         if (!_isDocumentLoaded)
@@ -89,7 +112,14 @@ public sealed class FormattedAnswerView : ContentView
         }
 
         var version = ++_renderVersion;
-        await RenderPendingContentAsync(version);
+        if (IsStreaming)
+        {
+            await RenderPlainTextAsync(version);
+        }
+        else
+        {
+            await RenderPendingContentAsync(version);
+        }
     }
 
     /// <summary>
@@ -98,7 +128,16 @@ public sealed class FormattedAnswerView : ContentView
     {
         _isDocumentLoaded = true;
         var version = ++_renderVersion;
-        await RenderPendingContentAsync(version);
+        if (IsStreaming)
+        {
+            _pendingPlainText = NormalizeNewLines(Text ?? string.Empty);
+            await RenderPlainTextAsync(version);
+        }
+        else
+        {
+            _pendingBodyHtml = MarkdownToHtml(NormalizeNewLines(Text ?? string.Empty));
+            await RenderPendingContentAsync(version);
+        }
     }
 
     /// <summary>
@@ -159,36 +198,43 @@ public sealed class FormattedAnswerView : ContentView
 
             await _webView.EvaluateJavaScriptAsync($$"""
                 (function () {
-                    const answer = document.getElementById('answer');
-                    if (!answer) {
-                        return 'missing-answer';
+                    if (window.setAnswerHtml) {
+                        return window.setAnswerHtml({{bodyJson}}, {{colorJson}}, {{fontSizeJson}});
                     }
-
-                    document.documentElement.style.setProperty('--answer-color', {{colorJson}});
-                    document.documentElement.style.setProperty('--answer-font-size', {{fontSizeJson}});
-                    answer.innerHTML = {{bodyJson}};
-
-                    const scrollToBottom = function () {
-                        window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
-                    };
-
-                    if (window.MathJax && MathJax.typesetPromise) {
-                        if (MathJax.typesetClear) {
-                            MathJax.typesetClear([answer]);
-                        }
-
-                        MathJax.typesetPromise([answer]).then(scrollToBottom).catch(scrollToBottom);
-                    } else {
-                        scrollToBottom();
-                    }
-
-                    return 'ok';
+                    return 'missing-setAnswerHtml';
                 })();
                 """);
         }
         catch
         {
             // 渲染失败时保持 WebView 当前内容，避免打断流式回答。
+        }
+    }
+
+    private async Task RenderPlainTextAsync(int version)
+    {
+        try
+        {
+            await Task.Delay(35);
+            if (version != _renderVersion)
+            {
+                return;
+            }
+
+            var textJson = JsonSerializer.Serialize(_pendingPlainText);
+
+            await _webView.EvaluateJavaScriptAsync($$"""
+                (function () {
+                    if (window.setAnswerText) {
+                        return window.setAnswerText({{textJson}});
+                    }
+                    return 'missing-setAnswerText';
+                })();
+                """);
+        }
+        catch
+        {
+            // 流式渲染失败不要中断回答，下一次 delta 或最终渲染会继续尝试。
         }
     }
 
@@ -300,6 +346,14 @@ public sealed class FormattedAnswerView : ContentView
                   overflow-y: hidden;
                   max-width: 100%;
                 }
+
+                #answer.streaming {
+                  white-space: pre-wrap;
+                }
+
+                #answer.final {
+                  white-space: normal;
+                }
               </style>
               <script>
                 window.MathJax = {
@@ -318,9 +372,66 @@ public sealed class FormattedAnswerView : ContentView
                 };
               </script>
               <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+              <script>
+                (function () {
+                  const scrollToBottom = function () {
+                    window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
+                  };
+
+                  let pendingText = '';
+                  let pendingFrame = 0;
+
+                  window.setAnswerText = function (text) {
+                    pendingText = text || '';
+                    if (pendingFrame) {
+                      return 'queued';
+                    }
+
+                    pendingFrame = requestAnimationFrame(function () {
+                      pendingFrame = 0;
+                      const answer = document.getElementById('answer');
+                      if (!answer) {
+                        return;
+                      }
+
+                      answer.classList.remove('final');
+                      answer.classList.add('streaming');
+                      answer.textContent = pendingText;
+                      scrollToBottom();
+                    });
+
+                    return 'ok';
+                  };
+
+                  window.setAnswerHtml = function (html, color, fontSize) {
+                    const answer = document.getElementById('answer');
+                    if (!answer) {
+                      return 'missing-answer';
+                    }
+
+                    document.documentElement.style.setProperty('--answer-color', color);
+                    document.documentElement.style.setProperty('--answer-font-size', fontSize);
+                    answer.classList.remove('streaming');
+                    answer.classList.add('final');
+                    answer.innerHTML = html || '';
+
+                    if (window.MathJax && MathJax.typesetPromise) {
+                      if (MathJax.typesetClear) {
+                        MathJax.typesetClear([answer]);
+                      }
+
+                      MathJax.typesetPromise([answer]).then(scrollToBottom).catch(scrollToBottom);
+                    } else {
+                      scrollToBottom();
+                    }
+
+                    return 'ok';
+                  };
+                })();
+              </script>
             </head>
             <body>
-              <main id="answer"></main>
+              <main id="answer" class="final"></main>
             </body>
             </html>
             """;

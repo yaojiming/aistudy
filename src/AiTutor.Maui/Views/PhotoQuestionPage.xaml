@@ -88,6 +88,7 @@
                     </Border.StrokeShape>
                     <controls:FormattedAnswerView x:Name="AnswerContentView"
                                                   Text="{Binding ResultText}"
+                                                  IsStreaming="{Binding IsStreamingAnswer}"
                                                   AnswerFontSize="16"
                                                   AnswerTextColor="#334155" />
                 </Border>

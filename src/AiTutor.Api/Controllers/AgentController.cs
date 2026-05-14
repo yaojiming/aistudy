@@ -42,6 +42,17 @@ public class AgentController : ControllerBase
     public async Task<ActionResult<AgentResponse>> Ask([FromBody] AgentRequest request, CancellationToken cancellationToken)
     {
         var response = await _agentService.AskAsync(request, cancellationToken);
+        if (string.Equals(request.Mode, "check_homework", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Homework check API response. ItemCount={ItemCount}, TotalCount={TotalCount}, CorrectCount={CorrectCount}, WrongCount={WrongCount}, QuestionNos={QuestionNos}",
+                response.HomeworkCheckResult?.Items.Count ?? 0,
+                response.HomeworkCheckResult?.TotalCount ?? 0,
+                response.HomeworkCheckResult?.CorrectCount ?? 0,
+                response.HomeworkCheckResult?.WrongCount ?? 0,
+                string.Join(",", response.HomeworkCheckResult?.Items.Select(item => item.QuestionNo) ?? []));
+        }
+
         return Ok(response);
     }
 

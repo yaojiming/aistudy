@@ -3,6 +3,7 @@ using AiTutor.Core.Enums;
 using AiTutor.Core.Interfaces;
 using AiTutor.Infrastructure.Data;
 using AiTutor.Shared.Agent;
+using Microsoft.Extensions.Logging;
 
 namespace AiTutor.Infrastructure.Services;
 
@@ -12,16 +13,31 @@ namespace AiTutor.Infrastructure.Services;
 public class HomeworkCheckService : IHomeworkCheckService
 {
     private readonly AiTutorDbContext _dbContext;
+    private readonly ILogger<HomeworkCheckService> _logger;
 
-    public HomeworkCheckService(AiTutorDbContext dbContext)
+    public HomeworkCheckService(AiTutorDbContext dbContext, ILogger<HomeworkCheckService> logger)
     {
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task SaveItemsAsync(string questionRecordId, string userId, string? subject, string? grade, HomeworkCheckResultDto result, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "Saving homework check items. QuestionRecordId={QuestionRecordId}, ItemCount={ItemCount}, TotalCount={TotalCount}, QuestionNos={QuestionNos}",
+            questionRecordId,
+            result.Items.Count,
+            result.TotalCount,
+            string.Join(",", result.Items.Select(item => item.QuestionNo)));
+
         foreach (var item in result.Items)
         {
+            _logger.LogInformation(
+                "Saving homework check item. QuestionRecordId={QuestionRecordId}, QuestionNo={QuestionNo}, IsCorrect={IsCorrect}",
+                questionRecordId,
+                item.QuestionNo,
+                item.IsCorrect);
+
             var entity = new HomeworkCheckItem
             {
                 QuestionRecordId = questionRecordId,

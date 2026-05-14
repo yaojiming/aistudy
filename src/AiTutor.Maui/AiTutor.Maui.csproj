@@ -53,6 +53,11 @@
 		<MonoAndroidResourcePrefix>Platforms\Android\Resources</MonoAndroidResourcePrefix>
 		<!-- 嵌入程序集时不打包 Android 调试符号，避开部分 Windows Android 工具链的 PDB so 包装错误。 -->
 		<AndroidIncludeDebugSymbols>false</AndroidIncludeDebugSymbols>
+		<AndroidKeyStore>true</AndroidKeyStore>
+		<AndroidSigningKeyStore>$(MSBuildThisFileDirectory)..\..\.android\debug.keystore</AndroidSigningKeyStore>
+		<AndroidSigningStorePass>android</AndroidSigningStorePass>
+		<AndroidSigningKeyAlias>androiddebugkey</AndroidSigningKeyAlias>
+		<AndroidSigningKeyPass>android</AndroidSigningKeyPass>
 	</PropertyGroup>
 
 	<ItemGroup>

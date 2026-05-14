@@ -41,8 +41,16 @@ public static class DependencyInjection
 
         services.AddDbContext<AiTutorDbContext>(options => options.UseSqlServer(connectionString));
         services.Configure<AiProviderOptions>(options => ConfigureAiProviderOptions(configuration, options));
-        services.AddHttpClient<DeepSeekTextModelProvider>();
-        services.AddHttpClient<GlmVisionModelProvider>();
+        // 模型请求的超时统一由各 Provider 内部的 CancellationTokenSource 控制，
+        // 避免 HttpClient 默认 100 秒超时先于 AiProviders:TimeoutSeconds 触发。
+        services.AddHttpClient<DeepSeekTextModelProvider>(client =>
+        {
+            client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+        });
+        services.AddHttpClient<GlmVisionModelProvider>(client =>
+        {
+            client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+        });
 
         services.AddScoped<IAgentService, AgentService>();
         services.AddScoped<IAgentRouter, AgentRouter>();

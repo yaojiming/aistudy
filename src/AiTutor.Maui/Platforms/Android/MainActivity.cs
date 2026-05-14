@@ -12,8 +12,7 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnCreate(savedInstanceState);
 
-        // 模拟器冷启动偶发只创建窗口不刷新画面。保持硬件加速，避免触摸坐标错位；
-        // 只设置首屏背景，并在 OnResume 里触发一次窗口刷新。
+        // 模拟器冷启动偶发只创建窗口但不绘制 MAUI 内容；先固定白色背景，并在 OnResume 触发一次重绘。
         Window?.SetBackgroundDrawable(new ColorDrawable(Android.Graphics.Color.White));
     }
 
