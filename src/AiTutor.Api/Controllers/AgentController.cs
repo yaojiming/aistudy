@@ -69,7 +69,7 @@ public class AgentController : ControllerBase
 
         await foreach (var chunk in _agentService.StreamAskAsync(request, cancellationToken))
         {
-            _logger.LogInformation("Agent stream chunk. Type={Type}, TextLength={TextLength}", chunk.Type, chunk.Text?.Length ?? 0);
+            //_logger.LogInformation("Agent stream chunk. Type={Type}, TextLength={TextLength}", chunk.Type, chunk.Text?.Length ?? 0);
             var eventName = chunk.Type == "final" ? "final" : chunk.Type == "error" ? "error" : "delta";
             await Response.WriteAsync($"event: {eventName}\n", cancellationToken);
             await Response.WriteAsync($"data: {JsonSerializer.Serialize(chunk)}\n\n", cancellationToken);
