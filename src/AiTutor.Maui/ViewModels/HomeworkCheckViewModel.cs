@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows.Input;
 using AiTutor.Maui.Models;
 using AiTutor.Maui.Services;
@@ -8,7 +8,7 @@ using Microsoft.Maui.Graphics;
 namespace AiTutor.Maui.ViewModels;
 
 /// <summary>
-/// 作业检查页面 ViewModel。页面只绑定状态；图片处理、题目识别、检查流程分别交给服务完成。
+/// 浣滀笟妫€鏌ラ〉闈?ViewModel銆傞〉闈㈠彧缁戝畾鐘舵€侊紱鍥剧墖澶勭悊銆侀鐩瘑鍒€佹鏌ユ祦绋嬪垎鍒氦缁欐湇鍔″畬鎴愩€?
 /// </summary>
 public sealed class HomeworkCheckViewModel : ViewModelBase
 {
@@ -22,14 +22,16 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
 
     private string? _selectedGrade;
     private string? _selectedSubject = "数学";
+    private string? _selectedModelName;
+    private bool _isThinkingModeEnabled;
     private string? _originalImagePath;
     private string? _correctedImagePath;
     private ImageSource? _previewImage;
     private HomeworkQuestionItemViewModel? _selectedQuestion;
     private string? _selectedQuestionRegionId;
-    private string _clientStageText = "未开始";
-    private string _aiStatusText = "等待选择作业图片";
-    private string _latestStatusMessage = "请选择或拍摄一张作业图片。";
+    public string ClientStageText { get => _clientStageText; set => SetProperty(ref _clientStageText, value); }
+    public string AiStatusText { get => _aiStatusText; set => SetProperty(ref _aiStatusText, value); }
+    public string LatestStatusMessage { get => _latestStatusMessage; set => SetProperty(ref _latestStatusMessage, value); }
     private int _returnedResultCount;
     private float _imagePixelWidth;
     private float _imagePixelHeight;
@@ -72,10 +74,13 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
         NudgeSelectedRegionCommand = new AsyncCommand<string>(NudgeSelectedRegionAsync);
         SelectQuestionRegionCommand = new AsyncCommand<string>(SelectQuestionAsync);
         SelectQuestionCommand = new AsyncCommand<HomeworkQuestionItemViewModel>(SelectQuestionAsync);
+        _ = LoadModelOptionsAsync();
     }
 
     public string? SelectedGrade { get => _selectedGrade; set => SetProperty(ref _selectedGrade, value); }
     public string? SelectedSubject { get => _selectedSubject; set => SetProperty(ref _selectedSubject, value); }
+    public string? SelectedModelName { get => _selectedModelName; set => SetProperty(ref _selectedModelName, value); }
+    public bool IsThinkingModeEnabled { get => _isThinkingModeEnabled; set => SetProperty(ref _isThinkingModeEnabled, value); }
     public ImageSource? PreviewImage
     {
         get => _previewImage;
@@ -89,9 +94,9 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
         }
     }
 
-    public string ClientStageText { get => _clientStageText; set => SetProperty(ref _clientStageText, value); }
-    public string AiStatusText { get => _aiStatusText; set => SetProperty(ref _aiStatusText, value); }
-    public string LatestStatusMessage { get => _latestStatusMessage; set => SetProperty(ref _latestStatusMessage, value); }
+    private string _clientStageText = "未开始";
+    private string _aiStatusText = "等待选择作业图片";
+    private string _latestStatusMessage = "请选择或拍摄一张作业图片。";
 
     public int ReturnedResultCount
     {
@@ -154,6 +159,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     }
 
     public ObservableCollection<HomeworkQuestionItemViewModel> Questions { get; } = [];
+    public ObservableCollection<string> ModelNames { get; } = [];
     public ObservableCollection<QuestionRegion> QuestionRegions { get; } = [];
     public bool HasPreview => PreviewImage is not null;
     public bool HasQuestions => Questions.Count > 0;
@@ -180,6 +186,28 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     public ICommand SelectQuestionRegionCommand { get; }
     public ICommand SelectQuestionCommand { get; }
 
+    private async Task LoadModelOptionsAsync()
+    {
+        try
+        {
+            var options = await _settingsService.GetModelSelectionOptionsAsync();
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                ModelNames.Clear();
+                foreach (var model in options.VisionModelNames)
+                {
+                    ModelNames.Add(model);
+                }
+
+                SelectedModelName = options.HomeworkCheckDefaultModel;
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Load homework check model options failed.");
+        }
+    }
+
     private async Task PickImageAsync()
     {
         await ProcessSelectedFileAsync(await _mediaPickerService.PickImageAsync());
@@ -191,7 +219,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 选择图片后只做客户端可确定的处理：复制、方向修正和预览；随后直接把整图交给后端 AI 一次性检查。
+    /// 閫夋嫨鍥剧墖鍚庡彧鍋氬鎴风鍙‘瀹氱殑澶勭悊锛氬鍒躲€佹柟鍚戜慨姝ｅ拰棰勮锛涢殢鍚庣洿鎺ユ妸鏁村浘浜ょ粰鍚庣 AI 涓€娆℃€ф鏌ャ€?
     /// </summary>
     private async Task ProcessSelectedFileAsync(FileResult? file)
     {
@@ -206,7 +234,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
             IsBlockingLoading = true;
             ClientStageText = "客户端处理图片";
             AiStatusText = "未提交";
-            LatestStatusMessage = "正在读取作业图片...";
+            LatestStatusMessage = "请先选择作业图片。";
 
             _originalImagePath = await CopyFileToCacheAsync(file);
             var corrected = await _orientationService.CorrectOrientationAsync(_originalImagePath);
@@ -233,7 +261,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(_correctedImagePath))
         {
-            LatestStatusMessage = "请先选择作业图片。";
+            LatestStatusMessage = "正在读取作业图片...";
             return;
         }
 
@@ -251,7 +279,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 开始检查时整图一次性提交给 AI；题目框和检查结果都来自 AI 返回的最终 JSON。
+    /// 寮€濮嬫鏌ユ椂鏁村浘涓€娆℃€ф彁浜ょ粰 AI锛涢鐩鍜屾鏌ョ粨鏋滈兘鏉ヨ嚜 AI 杩斿洖鐨勬渶缁?JSON銆?
     /// </summary>
     private async Task StartCheckAsync()
     {
@@ -274,7 +302,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
             AiStatusText = "正在提交 AI 检查";
             LatestStatusMessage = "正在提交 AI 检查";
 
-            var results = await _checkWorkflowService.CheckAsync(_correctedImagePath, [], cancellationToken);
+            var results = await _checkWorkflowService.CheckAsync(_correctedImagePath, [], SelectedModelName, IsThinkingModeEnabled, cancellationToken);
             await MainThread.InvokeOnMainThreadAsync(() => ApplyCheckResults(results));
         }
         catch (OperationCanceledException)
@@ -425,7 +453,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     {
         if (SelectedQuestion is null)
         {
-            LatestStatusMessage = "请先选择一个题目框。";
+            LatestStatusMessage = "请先选择一道题。";
             return;
         }
 
@@ -444,7 +472,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     {
         if (SelectedQuestion is null)
         {
-            LatestStatusMessage = "请先选择一个题目框。";
+            LatestStatusMessage = "正在读取作业图片...";
             return Task.CompletedTask;
         }
 
@@ -573,7 +601,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
 }
 
 /// <summary>
-/// 作业检查右侧题目卡片 ViewModel，负责单题状态、紧凑摘要和详情展示。
+/// 浣滀笟妫€鏌ュ彸渚ч鐩崱鐗?ViewModel锛岃礋璐ｅ崟棰樼姸鎬併€佺揣鍑戞憳瑕佸拰璇︽儏灞曠ず銆?
 /// </summary>
 public sealed class HomeworkQuestionItemViewModel : ViewModelBase
 {
@@ -638,7 +666,7 @@ public sealed class HomeworkQuestionItemViewModel : ViewModelBase
         HomeworkQuestionStatus.Correct => "✓",
         HomeworkQuestionStatus.Wrong => "×",
         HomeworkQuestionStatus.Uncertain => "?",
-        _ => "·"
+        _ => "•"
     };
 
     public string StatusText => Status switch
@@ -653,7 +681,6 @@ public sealed class HomeworkQuestionItemViewModel : ViewModelBase
     public string StudentAnswerText => Result?.StudentAnswer ?? StudentAnswer ?? "未识别";
     public string CorrectAnswerText => Result?.CorrectAnswer ?? "待返回";
     public string DetailText => Result?.StreamingCheckText ?? "这道题还没有返回检查结果。";
-
     public Color StatusColor => Status switch
     {
         HomeworkQuestionStatus.Correct => Color.FromArgb("#22C55E"),
@@ -719,3 +746,4 @@ public sealed class HomeworkQuestionItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(RowStrokeColor));
     }
 }
+

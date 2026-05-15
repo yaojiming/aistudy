@@ -11,7 +11,7 @@ public class ChatViewModel : ViewModelBase
     private readonly IApiClientService _apiClientService;
     private string? _selectedGrade = "五年级";
     private string? _selectedSubject = "数学";
-    private string? _selectedThinkingMode = "standard";
+    private bool _isThinkingModeEnabled;
     private string _questionText = string.Empty;
     private string? _toastMessage;
     private string? _sessionId;
@@ -45,7 +45,7 @@ public class ChatViewModel : ViewModelBase
 
     public string? SelectedGrade { get => _selectedGrade; set => SetProperty(ref _selectedGrade, value); }
     public string? SelectedSubject { get => _selectedSubject; set => SetProperty(ref _selectedSubject, value); }
-    public string? SelectedThinkingMode { get => _selectedThinkingMode; set => SetProperty(ref _selectedThinkingMode, value); }
+    public bool IsThinkingModeEnabled { get => _isThinkingModeEnabled; set => SetProperty(ref _isThinkingModeEnabled, value); }
     public string QuestionText { get => _questionText; set => SetProperty(ref _questionText, value); }
 
     /// <summary>
@@ -142,7 +142,7 @@ public class ChatViewModel : ViewModelBase
                 Subject = SelectedSubject,
                 InputType = "text",
                 Mode = "ask",
-                ThinkingMode = SelectedThinkingMode,
+                EnableThinking = IsThinkingModeEnabled,
                 QuestionText = userText,
                 ConversationContext = conversationContext
             }, async delta =>

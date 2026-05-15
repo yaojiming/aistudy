@@ -27,7 +27,8 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     private ImageSource? _previewImage;
     private string? _selectedGrade = "三年级";
     private string? _selectedSubject = "数学";
-    private string? _selectedThinkingMode = "standard";
+    private string? _selectedModelName;
+    private bool _isThinkingModeEnabled;
     private string _resultText = "选择或拍摄一张清晰图片，AI老师会边看边讲。";
     private double _uploadProgress;
     private float _imagePixelWidth;
@@ -65,11 +66,13 @@ public abstract class ImageAskViewModelBase : ViewModelBase
         SubmitCommand = new AsyncCommand(SubmitAsync);
         BackCommand = new AsyncCommand(() => Shell.Current.GoToAsync("//home", false));
         SelectQuestionRegionCommand = new AsyncCommand<string>(SelectQuestionRegionAsync);
+        _ = LoadModelOptionsAsync();
     }
 
     public string? SelectedGrade { get => _selectedGrade; set => SetProperty(ref _selectedGrade, value); }
     public string? SelectedSubject { get => _selectedSubject; set => SetProperty(ref _selectedSubject, value); }
-    public string? SelectedThinkingMode { get => _selectedThinkingMode; set => SetProperty(ref _selectedThinkingMode, value); }
+    public string? SelectedModelName { get => _selectedModelName; set => SetProperty(ref _selectedModelName, value); }
+    public bool IsThinkingModeEnabled { get => _isThinkingModeEnabled; set => SetProperty(ref _isThinkingModeEnabled, value); }
     public ImageSource? PreviewImage { get => _previewImage; set => SetProperty(ref _previewImage, value); }
     public string ResultText { get => _resultText; set => SetProperty(ref _resultText, value); }
     public double UploadProgress { get => _uploadProgress; set => SetProperty(ref _uploadProgress, value); }
@@ -104,6 +107,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
 
     public ObservableCollection<HomeworkResultItemViewModel> HomeworkItems { get; } = [];
     public ObservableCollection<QuestionRegion> QuestionRegions { get; } = [];
+    public ObservableCollection<string> ModelNames { get; } = [];
 
     public ICommand PickImageCommand { get; }
     public ICommand CapturePhotoCommand { get; }
@@ -118,6 +122,33 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     protected abstract string ResourceType { get; }
     protected virtual string QuestionText => "请识别图片中的题目，并给出适合小学生理解的分步骤讲解。";
     protected virtual bool EnableQuestionRegionSelection => false;
+
+    private async Task LoadModelOptionsAsync()
+    {
+        if (_settingsService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var options = await _settingsService.GetModelSelectionOptionsAsync();
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                ModelNames.Clear();
+                foreach (var model in options.VisionModelNames)
+                {
+                    ModelNames.Add(model);
+                }
+
+                SelectedModelName = options.PhotoQuestionDefaultModel;
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Load photo question model options failed.");
+        }
+    }
 
     private async Task PickImageAsync()
     {
@@ -210,7 +241,8 @@ public abstract class ImageAskViewModelBase : ViewModelBase
                 Subject = SelectedSubject,
                 InputType = "image",
                 Mode = Mode,
-                ThinkingMode = SelectedThinkingMode,
+                EnableThinking = IsThinkingModeEnabled,
+                ModelName = SelectedModelName,
                 QuestionText = QuestionText,
                 ImageUrl = upload.FilePath
             };

@@ -48,7 +48,12 @@ public class GlmVisionModelProvider : IVisionModelProvider
     /// <returns>瑙嗚妯″瀷杩斿洖鐨勮瘑鍒笌璁茶В鏂囨湰锛涘紓甯告垨閰嶇疆缂哄け鏃惰繑鍥炲弸濂介敊璇枃鏈€?/returns>
     /// <remarks>
     /// 浠ｇ爜閫昏緫锛?    /// 1. 鏍￠獙 Zhipu ApiKey 鍜屽浘鐗囧湴鍧€锛?    /// 2. 浣跨敤 Bearer Token 閴存潈锛?    /// 3. 灏?prompt 涓?image_url 鏀惧叆鍚屼竴鏉?user message 鐨?content 鏁扮粍锛?    /// 4. 閫氳繃 TimeoutSeconds 鎺у埗 HTTP 璇锋眰鏃堕暱锛?    /// 5. 瑙ｆ瀽 choices[0].message.content锛?    /// 6. 鍑洪敊鏃跺彧璁板綍瀹夊叏鏃ュ織锛屼笉娉勯湶 API Key锛屼笉璁╁悗绔穿婧冦€?    /// </remarks>
-    public async Task<string> AnalyzeImageAsync(string imageUrl, string prompt, CancellationToken cancellationToken = default)
+    public async Task<string> AnalyzeImageAsync(
+        string imageUrl,
+        string prompt,
+        bool enableThinking = false,
+        string? modelName = null,
+        CancellationToken cancellationToken = default)
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey))
         {
@@ -67,29 +72,45 @@ public class GlmVisionModelProvider : IVisionModelProvider
             var modelImageUrl = await ResolveModelImageUrlAsync(imageUrl, timeoutCts.Token);
 
             var endpoint = ProviderHttpHelper.BuildChatCompletionsUri(_options.Zhipu.BaseUrl, FallbackBaseUrl);
-            var payload = new
-            {
-                model = ModelName,
-                messages = new object[]
-                {
-                    new
-                    {
-                        role = "user",
-                        content = new object[]
-                        {
-                            new { type = "text", text = prompt },
-                            new { type = "image_url", image_url = new { url = modelImageUrl } }
-                        }
-                    }
-                },
-                temperature = 0.2,
-                stream = false
-            };
+            var requestModelName = ResolveModelName(modelName);
+            _logger.LogInformation(
+                "GLM vision request prepared. Model={Model}, EnableThinking={EnableThinking}, ThinkingType={ThinkingType}, Stream={Stream}, PromptLength={PromptLength}",
+                requestModelName,
+                enableThinking,
+                GetThinkingType(enableThinking),
+                false,
+                prompt.Length);
 
             using var response = await SendWithRateLimitRetryAsync(
-                () => _httpClient.PostAsJsonAsync(endpoint, payload, timeoutCts.Token),
+                () => _httpClient.PostAsJsonAsync(endpoint, BuildVisionPayload(requestModelName, prompt, modelImageUrl, false, enableThinking, includeThinking: true), timeoutCts.Token),
                 timeoutCts.Token);
-             var responseText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            var responseText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+
+            if (!response.IsSuccessStatusCode && IsThinkingUnsupported(response, responseText))
+            {
+                _logger.LogWarning(
+                    "GLM vision model does not support thinking parameter. Model={Model}, EnableThinking={EnableThinking}. Retrying without thinking.",
+                    requestModelName,
+                    enableThinking);
+
+                using var fallbackResponse = await SendWithRateLimitRetryAsync(
+                    () => _httpClient.PostAsJsonAsync(endpoint, BuildVisionPayload(requestModelName, prompt, modelImageUrl, false, enableThinking, includeThinking: false), timeoutCts.Token),
+                    timeoutCts.Token);
+                responseText = await fallbackResponse.Content.ReadAsStringAsync(timeoutCts.Token);
+
+                if (!fallbackResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("GLM vision fallback call failed. StatusCode={StatusCode}, Body={Body}", fallbackResponse.StatusCode, TruncateForLog(responseText));
+                    return IsRateLimited(fallbackResponse)
+                        ? "GLM 视觉模型当前请求过于频繁或额度受限，请稍后再试。可以先等待 1 分钟，或临时切回 Mock 模式继续测试。"
+                        : $"GLM 视觉模型调用失败，状态码：{(int)fallbackResponse.StatusCode}。请稍后再试，或切回 Mock 模式继续测试。";
+                }
+
+                var fallbackContent = ProviderHttpHelper.ReadFirstChoiceContent(responseText);
+                return string.IsNullOrWhiteSpace(fallbackContent)
+                    ? "GLM 视觉模型已返回响应，但没有解析到有效图片讲解内容。请检查模型响应格式。"
+                    : fallbackContent;
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -123,7 +144,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
     /// 璋冪敤 GLM 瑙嗚妯″瀷鐪熷疄娴佸紡鎺ュ彛锛岄€愭杩斿洖鍥剧墖璇嗗埆鍜岃瑙ｅ唴瀹广€?    /// </summary>
     /// <param name="imageUrl">鍙緵妯″瀷璁块棶鐨勫浘鐗囧湴鍧€鎴栧悗绔浘鐗囪矾寰勩€?/param>
     /// <param name="prompt">娓叉煋鍚庣殑瑙嗚 Prompt銆?/param>
-    /// <param name="thinkingMode">鎬濊€冩ā寮忥紝鎺у埗璁茶В绠€娲佹垨缁嗚嚧銆?/param>
+    /// <param name="enableThinking">是否开启 GLM 官方 thinking 模式。</param>
     /// <param name="cancellationToken">鍙栨秷浠ょ墝銆?/param>
     /// <returns>瑙嗚妯″瀷澧為噺杈撳嚭鐗囨銆?/returns>
     /// <remarks>
@@ -131,12 +152,13 @@ public class GlmVisionModelProvider : IVisionModelProvider
     public async IAsyncEnumerable<string> AnalyzeImageStreamAsync(
         string imageUrl,
         string prompt,
-        string? thinkingMode = null,
+        bool enableThinking = false,
+        string? modelName = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey) || string.IsNullOrWhiteSpace(imageUrl))
         {
-            yield return await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
+            yield return await AnalyzeImageAsync(imageUrl, prompt, enableThinking, modelName, cancellationToken);
             yield break;
         }
 
@@ -145,36 +167,14 @@ public class GlmVisionModelProvider : IVisionModelProvider
         var modelImageUrl = await ResolveModelImageUrlAsync(imageUrl, timeoutCts.Token);
 
         var endpoint = ProviderHttpHelper.BuildChatCompletionsUri(_options.Zhipu.BaseUrl, FallbackBaseUrl);
-        var modelPrompt = ApplyThinkingMode(prompt, thinkingMode);
+        var requestModelName = ResolveModelName(modelName);
         _logger.LogInformation(
-            "GLM vision stream request prepared. Model={Model}, ThinkingMode={ThinkingMode}, PromptLength={PromptLength}",
-            ModelName,
-            string.IsNullOrWhiteSpace(thinkingMode) ? "standard" : thinkingMode,
-            modelPrompt.Length);
-
-        var payload = new
-        {
-            model = ModelName,
-            messages = new object[]
-            {
-                new
-                {
-                    role = "user",
-                    content = new object[]
-                    {
-                        new { type = "text", text = modelPrompt },
-                        new { type = "image_url", image_url = new { url = modelImageUrl } }
-                    }
-                }
-            },
-            temperature = 0.2,
-            stream = true
-        };
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
-        {
-            Content = JsonContent.Create(payload)
-        };
+            "GLM vision stream request prepared. Model={Model}, EnableThinking={EnableThinking}, ThinkingType={ThinkingType}, Stream={Stream}, PromptLength={PromptLength}",
+            requestModelName,
+            enableThinking,
+            GetThinkingType(enableThinking),
+            true,
+            prompt.Length);
 
         yield return "AI老师正在读题...\n\n";
 
@@ -182,6 +182,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
         var timeoutMessage = string.Empty;
         try
         {
+            using var request = CreateVisionRequest(endpoint, requestModelName, prompt, modelImageUrl, true, enableThinking, includeThinking: true);
             response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -196,10 +197,27 @@ public class GlmVisionModelProvider : IVisionModelProvider
             yield break;
         }
 
-        using var responseScope = response;
         if (!response.IsSuccessStatusCode)
         {
             var errorText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            if (IsThinkingUnsupported(response, errorText))
+            {
+                _logger.LogWarning(
+                    "GLM vision model does not support thinking parameter. Model={Model}, EnableThinking={EnableThinking}. Retrying stream without thinking.",
+                    requestModelName,
+                    enableThinking);
+
+                response.Dispose();
+                using var fallbackRequest = CreateVisionRequest(endpoint, requestModelName, prompt, modelImageUrl, true, enableThinking, includeThinking: false);
+                response = await _httpClient.SendAsync(fallbackRequest, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
+                if (response.IsSuccessStatusCode)
+                {
+                    goto StreamResponseReady;
+                }
+
+                errorText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            }
+
             _logger.LogWarning("GLM vision stream call failed. StatusCode={StatusCode}, Body={Body}", response.StatusCode, TruncateForLog(errorText));
             if (IsRateLimited(response))
             {
@@ -207,10 +225,11 @@ public class GlmVisionModelProvider : IVisionModelProvider
                 yield break;
             }
 
-            yield return await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
+            yield return await AnalyzeImageAsync(imageUrl, prompt, enableThinking, modelName, cancellationToken);
             yield break;
         }
 
+    StreamResponseReady:
         yield return "AI老师正在分析题目...\n\n";
 
         var mediaType = response.Content.Headers.ContentType?.MediaType;
@@ -286,6 +305,11 @@ public class GlmVisionModelProvider : IVisionModelProvider
 
                 if (delta.Kind == ModelDeltaKind.Reasoning)
                 {
+                    if (!enableThinking)
+                    {
+                        continue;
+                    }
+
                     if (!hasStartedReasoningSection)
                     {
                         hasStartedReasoningSection = true;
@@ -309,25 +333,89 @@ public class GlmVisionModelProvider : IVisionModelProvider
             }
         }
     }
-    /// <summary>
-    /// 灏嗘€濊€冩ā寮忛檮鍔犲埌瑙嗚 Prompt锛屾帶鍒剁湡瀹炴ā鍨嬭緭鍑洪暱搴﹀拰缁嗚嚧绋嬪害銆?    /// </summary>
-    /// <param name="prompt">鍘熷瑙嗚 Prompt銆?/param>
-    /// <param name="thinkingMode">brief銆乻tandard 鎴?deep銆?/param>
-    /// <returns>甯︽€濊€冩ā寮忚姹傜殑 Prompt銆?/returns>
-    private static string ApplyThinkingMode(string prompt, string? thinkingMode)
+    private string ResolveModelName(string? modelName)
     {
-        const string visibleReasoningInstruction = """
+        return string.IsNullOrWhiteSpace(modelName) ? ModelName : modelName.Trim();
+    }
 
-            请把适合学生观看的解题思考过程也写入正式回答，并放在【思路分析】小节中流式输出。
-            【思路分析】只写清楚“先观察什么、再判断什么、为什么这样做”，不要输出模型内部草稿、隐藏推理或与题目无关的自言自语。
-            """;
-
-        return (thinkingMode ?? "standard").Trim().ToLowerInvariant() switch
+    /// <summary>
+    /// 构造 GLM 官方 thinking 参数。true 开启官方思考，false 显式关闭。
+    /// </summary>
+    private static object BuildThinkingOptions(bool enableThinking)
+    {
+        return new
         {
-            "brief" => prompt + "\n\n请快速、简洁输出，只保留题目识别、关键步骤和答案。",
-            "deep" => prompt + visibleReasoningInstruction + "\n\n请更细致地说明识别依据、题意理解、每一步原因和易错点。",
-            _ => prompt + "\n\n请尽快开始输出。按【识别结果】【解题步骤】【最终答案】三部分讲解，步骤适中，不要额外展开长篇思考。"
+            type = GetThinkingType(enableThinking)
         };
+    }
+
+    private static string GetThinkingType(bool enableThinking)
+    {
+        return enableThinking ? "enabled" : "disabled";
+    }
+
+    private static Dictionary<string, object?> BuildVisionPayload(
+        string model,
+        string prompt,
+        string modelImageUrl,
+        bool stream,
+        bool enableThinking,
+        bool includeThinking)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["model"] = model,
+            ["messages"] = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "text", text = prompt },
+                        new { type = "image_url", image_url = new { url = modelImageUrl } }
+                    }
+                }
+            },
+            ["temperature"] = 0.2,
+            ["stream"] = stream
+        };
+
+        if (includeThinking)
+        {
+            payload["thinking"] = BuildThinkingOptions(enableThinking);
+        }
+
+        return payload;
+    }
+
+    private static HttpRequestMessage CreateVisionRequest(
+        Uri endpoint,
+        string model,
+        string prompt,
+        string modelImageUrl,
+        bool stream,
+        bool enableThinking,
+        bool includeThinking)
+    {
+        return new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(BuildVisionPayload(model, prompt, modelImageUrl, stream, enableThinking, includeThinking))
+        };
+    }
+
+    private static bool IsThinkingUnsupported(HttpResponseMessage response, string? responseText)
+    {
+        if ((int)response.StatusCode != 400)
+        {
+            return false;
+        }
+
+        var text = responseText ?? string.Empty;
+        return text.Contains("thinking", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("unsupported", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("invalid parameter", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("invalid_param", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

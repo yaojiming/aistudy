@@ -40,12 +40,12 @@ public class MockTextModelProvider : ITextModelProvider
     /// Mock 文本模型的流式输出，用于开发环境验证端到端流式链路。
     /// </summary>
     /// <param name="prompt">渲染后的 Prompt。</param>
-    /// <param name="thinkingMode">思考模式，占位保留。</param>
+    /// <param name="enableThinking">是否启用思考模式，占位保留。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>模拟增量文本片段。</returns>
     public async IAsyncEnumerable<string> GenerateStreamAsync(
         string prompt,
-        string? thinkingMode = null,
+        bool enableThinking = false,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var answer = await GenerateAsync(prompt, cancellationToken);

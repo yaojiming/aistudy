@@ -41,7 +41,7 @@ public class AgentRouter : IAgentRouter
         var textProviderName = GetTextProviderName();
         var visionProviderName = GetVisionProviderName();
         var textModelName = GetTextModelName();
-        var visionModelName = GetVisionModelName();
+        var visionModelName = string.IsNullOrWhiteSpace(request.ModelName) ? GetVisionModelName() : request.ModelName.Trim();
 
         return mode switch
         {

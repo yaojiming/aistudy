@@ -28,14 +28,14 @@ public class VisionAgent : IStreamingAgent
     /// <returns>完整图片讲题响应。</returns>
     public async Task<AgentResponse> ExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default)
     {
-        var answer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), cancellationToken);
+        var answer = await _visionProvider.AnalyzeImageAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), request.EnableThinking, request.ModelName, cancellationToken);
         return CreateResponse(route, answer);
     }
 
     /// <summary>
     /// 执行真实流式图片讲题流程，逐段返回视觉模型输出。
     /// </summary>
-    /// <param name="request">包含图片路径与 ThinkingMode 的 Agent 请求。</param>
+    /// <param name="request">包含图片路径与 EnableThinking 的 Agent 请求。</param>
     /// <param name="route">Agent 路由结果。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>delta 文本片段和最终结构化响应。</returns>
@@ -45,7 +45,7 @@ public class VisionAgent : IStreamingAgent
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var answerText = string.Empty;
-        await foreach (var delta in _visionProvider.AnalyzeImageStreamAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), request.ThinkingMode, cancellationToken))
+        await foreach (var delta in _visionProvider.AnalyzeImageStreamAsync(request.ImageUrl ?? string.Empty, BuildPrompt(request), request.EnableThinking, request.ModelName, cancellationToken))
         {
             answerText += delta;
             yield return new AgentStreamChunkDto { Type = "delta", Text = delta };

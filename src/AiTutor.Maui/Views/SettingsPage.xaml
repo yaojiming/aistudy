@@ -32,73 +32,124 @@
             </VerticalStackLayout>
         </Grid>
 
-        <Grid Grid.Row="1"
+        <ScrollView Grid.Row="1">
+            <Grid Grid.Row="1"
               Padding="42"
-              RowDefinitions="Auto,Auto,Auto,*"
+              RowDefinitions="Auto,Auto,Auto,Auto,*"
               RowSpacing="22"
               MaximumWidthRequest="980"
               HorizontalOptions="Center"
               VerticalOptions="Start">
-            <Border Padding="28"
+
+                <Border Padding="28"
                     BackgroundColor="#FFFFFF"
                     Stroke="#E2E8F0">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="24" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="18">
-                    <Label Text="学习信息"
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="24" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="18">
+                        <Label Text="学习信息"
                            FontSize="20"
                            FontAttributes="Bold"
                            TextColor="#1E293B" />
-                    <Label Text="当前年级"
+                        <Label Text="当前年级"
                            FontSize="14"
                            FontAttributes="Bold"
                            TextColor="#64748B" />
-                    <Picker ItemsSource="{Binding GradeOptions}"
+                        <Picker ItemsSource="{Binding GradeOptions}"
                             SelectedItem="{Binding SelectedGrade}"
                             FontSize="18"
                             HeightRequest="54"
                             BackgroundColor="#F8FAFC" />
-                </VerticalStackLayout>
-            </Border>
+                    </VerticalStackLayout>
+                </Border>
 
-            <Border Grid.Row="1"
+                <Border Grid.Row="1"
                     Padding="28"
                     BackgroundColor="#FFFFFF"
                     Stroke="#E2E8F0">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="24" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="18">
-                    <Label Text="后端服务"
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="24" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="18">
+                        <Label Text="后端服务"
                            FontSize="20"
                            FontAttributes="Bold"
                            TextColor="#1E293B" />
-                    <Label Text="AiTutor.Api HTTP 地址"
+                        <Label Text="AiTutor.Api HTTP 地址"
                            FontSize="14"
                            FontAttributes="Bold"
                            TextColor="#64748B" />
-                    <Entry Text="{Binding ApiBaseUrl}"
+                        <Entry Text="{Binding ApiBaseUrl}"
                            FontSize="18"
                            HeightRequest="56"
                            Keyboard="Url"
                            Placeholder="例如 http://10.0.2.2:5088"
                            BackgroundColor="#F8FAFC"
                            TextColor="#1E293B" />
-                    <Label Text="Android 模拟器访问电脑本机后端通常使用 http://10.0.2.2:5088；真机需要填写电脑局域网 IP。"
+                        <Label Text="Android 模拟器访问电脑本机后端通常使用 http://10.0.2.2:5088；真机需要填写电脑局域网 IP。"
                            FontSize="13"
                            TextColor="#94A3B8"
                            LineBreakMode="WordWrap" />
-                </VerticalStackLayout>
-            </Border>
+                    </VerticalStackLayout>
+                </Border>
 
-            <Label Grid.Row="2"
+                <Border Grid.Row="2"
+                    Padding="28"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E2E8F0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="24" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="18">
+                        <Label Text="大模型设置"
+                           FontSize="20"
+                           FontAttributes="Bold"
+                           TextColor="#1E293B" />
+                        <Label Text="模型名称列表（每行一个，也支持逗号分隔）"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="#64748B" />
+                        <Editor Text="{Binding VisionModelNamesText}"
+                            FontSize="16"
+                            HeightRequest="110"
+                            AutoSize="Disabled"
+                            BackgroundColor="#F8FAFC"
+                            TextColor="#1E293B" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="拍照讲题默认模型"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="#64748B" />
+                                <Picker ItemsSource="{Binding VisionModelOptions}"
+                                    SelectedItem="{Binding SelectedPhotoQuestionDefaultModel}"
+                                    FontSize="16"
+                                    HeightRequest="52"
+                                    BackgroundColor="#F8FAFC" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="8">
+                                <Label Text="检查作业默认模型"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="#64748B" />
+                                <Picker ItemsSource="{Binding VisionModelOptions}"
+                                    SelectedItem="{Binding SelectedHomeworkCheckDefaultModel}"
+                                    FontSize="16"
+                                    HeightRequest="52"
+                                    BackgroundColor="#F8FAFC" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Grid.Row="3"
                    Text="{Binding StatusMessage}"
                    IsVisible="{Binding HasStatusMessage}"
                    FontSize="14"
                    TextColor="#0F766E" />
 
-            <Button Grid.Row="3"
+                <Button Grid.Row="4"
                     Text="保存设置"
                     FontSize="18"
                     FontAttributes="Bold"
@@ -107,6 +158,7 @@
                     BackgroundColor="#2563EB"
                     TextColor="#FFFFFF"
                     Command="{Binding SaveCommand}" />
-        </Grid>
+            </Grid>
+        </ScrollView>
     </Grid>
 </ContentPage>

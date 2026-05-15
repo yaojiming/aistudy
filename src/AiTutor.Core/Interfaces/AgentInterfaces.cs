@@ -50,7 +50,7 @@ public interface ITextModelProvider
 
     Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default);
 
-    IAsyncEnumerable<string> GenerateStreamAsync(string prompt, string? thinkingMode = null, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<string> GenerateStreamAsync(string prompt, bool enableThinking = false, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -62,9 +62,9 @@ public interface IVisionModelProvider
 
     string ModelName { get; }
 
-    Task<string> AnalyzeImageAsync(string imageUrl, string prompt, CancellationToken cancellationToken = default);
+    Task<string> AnalyzeImageAsync(string imageUrl, string prompt, bool enableThinking = false, string? modelName = null, CancellationToken cancellationToken = default);
 
-    IAsyncEnumerable<string> AnalyzeImageStreamAsync(string imageUrl, string prompt, string? thinkingMode = null, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<string> AnalyzeImageStreamAsync(string imageUrl, string prompt, bool enableThinking = false, string? modelName = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

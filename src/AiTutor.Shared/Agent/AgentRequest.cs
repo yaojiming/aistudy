@@ -17,7 +17,15 @@ public class AgentRequest
 
     public string Mode { get; set; } = "ask";
 
-    public string? ThinkingMode { get; set; } = "standard";
+    /// <summary>
+    /// 是否开启模型官方思考模式。true 表示请求支持 thinking 的模型启用思考，false 表示关闭。
+    /// </summary>
+    public bool EnableThinking { get; set; }
+
+    /// <summary>
+    /// Optional model name selected by the client. API keys and provider selection stay on the server.
+    /// </summary>
+    public string? ModelName { get; set; }
 
     public string? QuestionText { get; set; }
 

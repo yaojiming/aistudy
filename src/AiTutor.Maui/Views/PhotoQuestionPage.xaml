@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
@@ -6,7 +6,7 @@
              Shell.NavBarIsVisible="False"
              Title="拍照讲题">
     <Grid BackgroundColor="#F8FAFC" RowDefinitions="76,*">
-        <Grid Padding="30,12" ColumnDefinitions="*,158,158,184,Auto,Auto" ColumnSpacing="14" BackgroundColor="#FFFFFF">
+        <Grid Padding="30,12" ColumnDefinitions="*,150,150,210,140,Auto,Auto" ColumnSpacing="12" BackgroundColor="#FFFFFF">
             <HorizontalStackLayout Spacing="2" VerticalOptions="Center" HorizontalOptions="Start">
                 <Button Text="‹"
                         FontSize="30"
@@ -29,9 +29,19 @@
             </HorizontalStackLayout>
             <Picker Grid.Column="1" ItemsSource="{Binding Grades}" SelectedItem="{Binding SelectedGrade}" FontSize="15" BackgroundColor="#F8FAFC" />
             <Picker Grid.Column="2" ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}" FontSize="15" BackgroundColor="#F8FAFC" />
-            <Picker Grid.Column="3" ItemsSource="{Binding ThinkingModes}" SelectedItem="{Binding SelectedThinkingMode}" FontSize="15" BackgroundColor="#F8FAFC" />
-            <Button Grid.Column="4" Text="选择图片" FontSize="15" FontAttributes="Bold" WidthRequest="116" HeightRequest="44" CornerRadius="16" BackgroundColor="#2563EB" TextColor="#FFFFFF" Command="{Binding PickImageCommand}" />
-            <Button Grid.Column="5" Text="拍照" FontSize="15" FontAttributes="Bold" WidthRequest="92" HeightRequest="44" CornerRadius="16" BackgroundColor="#0F766E" TextColor="#FFFFFF" Command="{Binding CapturePhotoCommand}" />
+            <Picker Grid.Column="3" ItemsSource="{Binding ModelNames}" SelectedItem="{Binding SelectedModelName}" FontSize="15" BackgroundColor="#F8FAFC" />
+            <HorizontalStackLayout Grid.Column="4"
+                                   Spacing="8"
+                                   VerticalOptions="Center"
+                                   HorizontalOptions="Center">
+                <Label Text="思考"
+                       FontSize="14"
+                       TextColor="#334155"
+                       VerticalTextAlignment="Center" />
+                <Switch IsToggled="{Binding IsThinkingModeEnabled}" />
+            </HorizontalStackLayout>
+            <Button Grid.Column="5" Text="选择图片" FontSize="15" FontAttributes="Bold" WidthRequest="116" HeightRequest="44" CornerRadius="16" BackgroundColor="#2563EB" TextColor="#FFFFFF" Command="{Binding PickImageCommand}" />
+            <Button Grid.Column="6" Text="拍照" FontSize="15" FontAttributes="Bold" WidthRequest="92" HeightRequest="44" CornerRadius="16" BackgroundColor="#0F766E" TextColor="#FFFFFF" Command="{Binding CapturePhotoCommand}" />
         </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="0.5*,1*" ColumnSpacing="0">
@@ -128,3 +138,4 @@
         <controls:LoadingOverlay Grid.RowSpan="2" IsLoading="{Binding IsBlockingLoading}" LoadingText="AI老师正在看图..." />
     </Grid>
 </ContentPage>
+

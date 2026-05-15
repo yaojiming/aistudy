@@ -9,6 +9,9 @@ public class SettingsViewModel : ViewModelBase
     private readonly IAppSettingsService _settingsService;
     private string? _selectedGrade;
     private string _apiBaseUrl = string.Empty;
+    private string _visionModelNamesText = string.Empty;
+    private string? _selectedPhotoQuestionDefaultModel;
+    private string? _selectedHomeworkCheckDefaultModel;
     private string? _statusMessage;
 
     public SettingsViewModel(IAppSettingsService settingsService)
@@ -21,6 +24,7 @@ public class SettingsViewModel : ViewModelBase
     }
 
     public ObservableCollection<string> GradeOptions { get; }
+    public ObservableCollection<string> VisionModelOptions { get; } = [];
 
     public string? SelectedGrade
     {
@@ -32,6 +36,30 @@ public class SettingsViewModel : ViewModelBase
     {
         get => _apiBaseUrl;
         set => SetProperty(ref _apiBaseUrl, value);
+    }
+
+    public string VisionModelNamesText
+    {
+        get => _visionModelNamesText;
+        set
+        {
+            if (SetProperty(ref _visionModelNamesText, value))
+            {
+                RefreshVisionModelOptions();
+            }
+        }
+    }
+
+    public string? SelectedPhotoQuestionDefaultModel
+    {
+        get => _selectedPhotoQuestionDefaultModel;
+        set => SetProperty(ref _selectedPhotoQuestionDefaultModel, value);
+    }
+
+    public string? SelectedHomeworkCheckDefaultModel
+    {
+        get => _selectedHomeworkCheckDefaultModel;
+        set => SetProperty(ref _selectedHomeworkCheckDefaultModel, value);
     }
 
     public string? StatusMessage
@@ -57,8 +85,12 @@ public class SettingsViewModel : ViewModelBase
     private async Task LoadAsync()
     {
         var options = await _settingsService.GetApiOptionsAsync();
+        var modelOptions = await _settingsService.GetModelSelectionOptionsAsync();
         SelectedGrade = _settingsService.GetCurrentGrade();
         ApiBaseUrl = options.BaseUrl;
+        VisionModelNamesText = string.Join(Environment.NewLine, modelOptions.VisionModelNames);
+        SelectedPhotoQuestionDefaultModel = modelOptions.PhotoQuestionDefaultModel;
+        SelectedHomeworkCheckDefaultModel = modelOptions.HomeworkCheckDefaultModel;
     }
 
     /// <summary>
@@ -80,7 +112,40 @@ public class SettingsViewModel : ViewModelBase
 
             _settingsService.SaveCurrentGrade(SelectedGrade);
             await _settingsService.SaveApiBaseUrlAsync(ApiBaseUrl);
+            await _settingsService.SaveModelSelectionOptionsAsync(new ModelSelectionOptions
+            {
+                VisionModelNames = ParseVisionModelNames().ToList(),
+                PhotoQuestionDefaultModel = SelectedPhotoQuestionDefaultModel ?? string.Empty,
+                HomeworkCheckDefaultModel = SelectedHomeworkCheckDefaultModel ?? string.Empty
+            });
             StatusMessage = "设置已保存，新的后端地址会在下一次请求时生效。";
         });
+    }
+
+    private void RefreshVisionModelOptions()
+    {
+        var currentPhoto = SelectedPhotoQuestionDefaultModel;
+        var currentHomework = SelectedHomeworkCheckDefaultModel;
+
+        VisionModelOptions.Clear();
+        foreach (var model in ParseVisionModelNames())
+        {
+            VisionModelOptions.Add(model);
+        }
+
+        SelectedPhotoQuestionDefaultModel = VisionModelOptions.Contains(currentPhoto)
+            ? currentPhoto
+            : VisionModelOptions.FirstOrDefault();
+        SelectedHomeworkCheckDefaultModel = VisionModelOptions.Contains(currentHomework)
+            ? currentHomework
+            : VisionModelOptions.FirstOrDefault();
+    }
+
+    private IEnumerable<string> ParseVisionModelNames()
+    {
+        return VisionModelNamesText
+            .Split(['\r', '\n', ',', '，', ';', '；'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(model => !string.IsNullOrWhiteSpace(model))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 }

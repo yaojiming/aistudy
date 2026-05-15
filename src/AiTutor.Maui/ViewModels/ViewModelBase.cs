@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -13,7 +13,7 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
-    /// 页面是否正在执行网络请求或图片处理，用于控制加载状态。
+    /// 页面是否正在执行网络请求或图片处理。
     /// </summary>
     public bool IsBusy
     {
@@ -22,7 +22,7 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// 统一错误提示文本，由页面绑定展示。
+    /// 统一错误提示文本。
     /// </summary>
     public string? ErrorMessage
     {
@@ -31,7 +31,7 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// 小学年级选项。
+    /// 小学年级选项，供问答、拍照讲题和作业检查页面复用。
     /// </summary>
     public ObservableCollection<string> Grades { get; } = new(["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"]);
 
@@ -41,13 +41,7 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     public ObservableCollection<string> Subjects { get; } = new(["数学", "语文", "英语"]);
 
     /// <summary>
-    /// 思考模式选项，传给后端影响真实模型的讲解细致程度。
-    /// </summary>
-    public ObservableCollection<string> ThinkingModes { get; } = new(["standard", "brief", "deep"]);
-
-    /// <summary>
-    /// 设置属性并触发变更通知，减少 ViewModel 重复代码。
-    /// </summary>
+    /// 璁剧疆灞炴€у苟瑙﹀彂鍙樻洿閫氱煡锛屽噺灏?ViewModel 閲嶅浠ｇ爜銆?    /// </summary>
     protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -61,16 +55,14 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// 触发属性变更通知。
-    /// </summary>
+    /// 瑙﹀彂灞炴€у彉鏇撮€氱煡銆?    /// </summary>
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     /// <summary>
-    /// 包裹异步操作，统一处理 Busy 状态和错误消息。
-    /// </summary>
+    /// 鍖呰９寮傛鎿嶄綔锛岀粺涓€澶勭悊 Busy 鐘舵€佸拰閿欒娑堟伅銆?    /// </summary>
     protected async Task RunBusyAsync(Func<Task> action)
     {
         if (IsBusy)
@@ -110,16 +102,14 @@ public sealed class AsyncCommand : ICommand
     public event EventHandler? CanExecuteChanged;
 
     /// <summary>
-    /// 判断命令当前是否可以执行，避免重复点击触发并发请求。
-    /// </summary>
+    /// 鍒ゆ柇鍛戒护褰撳墠鏄惁鍙互鎵ц锛岄伩鍏嶉噸澶嶇偣鍑昏Е鍙戝苟鍙戣姹傘€?    /// </summary>
     public bool CanExecute(object? parameter)
     {
         return !_isExecuting && (_canExecute?.Invoke() ?? true);
     }
 
     /// <summary>
-    /// 执行异步命令，并在执行前后刷新按钮可用状态。
-    /// </summary>
+    /// 鎵ц寮傛鍛戒护锛屽苟鍦ㄦ墽琛屽墠鍚庡埛鏂版寜閽彲鐢ㄧ姸鎬併€?    /// </summary>
     public async void Execute(object? parameter)
     {
         if (!CanExecute(parameter))
@@ -140,3 +130,4 @@ public sealed class AsyncCommand : ICommand
         }
     }
 }
+

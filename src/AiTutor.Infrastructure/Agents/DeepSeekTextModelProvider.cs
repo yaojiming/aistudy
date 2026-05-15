@@ -14,7 +14,6 @@ namespace AiTutor.Infrastructure.Agents;
 /// <remarks>
 /// 调用链：ChatAgent / WrongBookAgent / TextbookRagAgent 等文本 Agent -> ITextModelProvider -> DeepSeekTextModelProvider。
 /// 本类只负责外部模型 HTTP 调用和错误兜底，不直接写数据库；ModelCallLog 仍由 AgentService 统一保存。
-/// 当 UseMock=false 且 DeepSeek ApiKey 正确配置时，依赖注入会把 ITextModelProvider 切换到本实现。
 /// </remarks>
 public class DeepSeekTextModelProvider : ITextModelProvider
 {
@@ -41,24 +40,13 @@ public class DeepSeekTextModelProvider : ITextModelProvider
         : _options.DeepSeek.DefaultModel;
 
     /// <summary>
-    /// 调用 DeepSeek 文本模型生成回答。
+    /// 调用 DeepSeek 文本模型生成完整回答。
     /// </summary>
-    /// <param name="prompt">PromptTemplateService 渲染后的完整教学 Prompt。</param>
-    /// <param name="cancellationToken">请求取消令牌。</param>
-    /// <returns>模型生成的回答；异常或配置缺失时返回友好错误文本。</returns>
-    /// <remarks>
-    /// 代码逻辑：
-    /// 1. 校验 ApiKey，避免把占位符密钥发给 DeepSeek；
-    /// 2. 使用 IHttpClientFactory 注入的 HttpClient 发送 chat/completions 请求；
-    /// 3. 使用 TimeoutSeconds 创建本次请求的超时取消令牌；
-    /// 4. 解析 choices[0].message.content；
-    /// 5. 任何 HTTP、超时或 JSON 异常都记录安全日志，并返回可展示给学生的提示。
-    /// </remarks>
     public async Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.DeepSeek.ApiKey))
         {
-            return "DeepSeek 文本模型还没有配置 API Key。请让家长或开发者在后端开发配置中填写密钥，当前不会影响 Mock 模式测试。";
+            return "DeepSeek 文本模型还没有配置 API Key。请在后端开发配置中填写密钥，或保持 UseMock=true 继续测试。";
         }
 
         try
@@ -72,7 +60,7 @@ public class DeepSeekTextModelProvider : ITextModelProvider
                 model = ModelName,
                 messages = new[]
                 {
-                    new { role = "system", content = "你是一名耐心、鼓励、适合小学阶段学生的 AI 老师。回答要分步骤讲解，不要只给答案。" },
+                    new { role = "system", content = BuildSystemPrompt(enableThinking: false) },
                     new { role = "user", content = prompt }
                 },
                 temperature = 0.3,
@@ -106,19 +94,14 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     }
 
     /// <summary>
-    /// 调用 DeepSeek Chat Completions 的真实流式接口，逐段返回 choices.delta.content。
+    /// 调用 DeepSeek Chat Completions 流式接口，逐段返回 choices.delta.content。
     /// </summary>
     /// <param name="prompt">渲染后的教学 Prompt。</param>
-    /// <param name="thinkingMode">思考模式，控制系统提示词中的讲解深度。</param>
+    /// <param name="enableThinking">是否启用更细致的可展示讲解。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>模型增量输出片段。</returns>
-    /// <remarks>
-    /// 调用链：ChatAgent.StreamExecuteAsync -> ITextModelProvider.GenerateStreamAsync。
-    /// 本方法设置 stream=true，并使用 ResponseHeadersRead 避免等待完整响应。
-    /// </remarks>
     public async IAsyncEnumerable<string> GenerateStreamAsync(
         string prompt,
-        string? thinkingMode = null,
+        bool enableThinking = false,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.DeepSeek.ApiKey))
@@ -136,7 +119,7 @@ public class DeepSeekTextModelProvider : ITextModelProvider
             model = ModelName,
             messages = new[]
             {
-                new { role = "system", content = BuildSystemPrompt(thinkingMode) },
+                new { role = "system", content = BuildSystemPrompt(enableThinking) },
                 new { role = "user", content = prompt }
             },
             temperature = 0.3,
@@ -148,7 +131,6 @@ public class DeepSeekTextModelProvider : ITextModelProvider
             Content = JsonContent.Create(payload)
         };
 
-        // 真实模型流式输出：响应头可用后立即开始读取 SSE data 行。
         using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
         if (!response.IsSuccessStatusCode)
         {
@@ -181,19 +163,13 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     }
 
     /// <summary>
-    /// 根据思考模式生成系统提示词，避免把该配置散落在 Agent 或 Controller。
+    /// 根据思考开关生成系统提示词。文本模型没有官方 thinking 参数，这里只控制可展示讲解的细致程度。
     /// </summary>
-    /// <param name="thinkingMode">brief、standard 或 deep。</param>
-    /// <returns>系统提示词。</returns>
-    private static string BuildSystemPrompt(string? thinkingMode)
+    private static string BuildSystemPrompt(bool enableThinking)
     {
-        var mode = (thinkingMode ?? "standard").Trim().ToLowerInvariant();
-        var depth = mode switch
-        {
-            "brief" => "讲解要简洁，直接给关键步骤。",
-            "deep" => "讲解要更细，先分析题意，再说明每一步为什么这样做。",
-            _ => "讲解要清楚分段，步骤适中。"
-        };
+        var depth = enableThinking
+            ? "请适当展开给学生看的分析步骤，说明先看什么、再怎么算、为什么这样做。"
+            : "请清楚分段，步骤适中，不要额外展开长篇分析。";
 
         return $"你是一名耐心、鼓励、适合小学阶段学生的 AI 老师。回答要分步骤讲解，不要只给答案。{depth}";
     }
@@ -201,8 +177,6 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     /// <summary>
     /// 从 OpenAI 兼容流式 JSON 中读取 choices[0].delta.content。
     /// </summary>
-    /// <param name="json">单条 SSE data 的 JSON 内容。</param>
-    /// <returns>增量文本；无法解析时返回 null。</returns>
     private static string? ReadDeltaContent(string json)
     {
         try
@@ -226,12 +200,6 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     /// <summary>
     /// 为单次 DeepSeek 请求创建带超时的取消令牌。
     /// </summary>
-    /// <param name="cancellationToken">ASP.NET Core 请求传入的原始取消令牌。</param>
-    /// <returns>链接原始取消令牌并附加 TimeoutSeconds 的 CancellationTokenSource。</returns>
-    /// <remarks>
-    /// 调用链：GenerateAsync -> CreateTimeoutToken -> HttpClient.PostAsJsonAsync。
-    /// 这样既能响应客户端取消，也能避免外部模型长时间无响应拖住 API 线程。
-    /// </remarks>
     private CancellationTokenSource CreateTimeoutToken(CancellationToken cancellationToken)
     {
         var timeoutSeconds = _options.TimeoutSeconds <= 0 ? 30 : _options.TimeoutSeconds;

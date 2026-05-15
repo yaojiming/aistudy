@@ -53,6 +53,8 @@ public class HomeworkCheckAgent : IStreamingAgent
         var modelAnswer = await _visionProvider.AnalyzeImageAsync(
             request.ImageUrl ?? string.Empty,
             BuildPrompt(request),
+            request.EnableThinking,
+            request.ModelName,
             cancellationToken);
 
         return CreateResponse(route, request, modelAnswer);
@@ -70,7 +72,8 @@ public class HomeworkCheckAgent : IStreamingAgent
         await foreach (var delta in _visionProvider.AnalyzeImageStreamAsync(
                            request.ImageUrl ?? string.Empty,
                            BuildPrompt(request),
-                           request.ThinkingMode,
+                           request.EnableThinking,
+                           request.ModelName,
                            cancellationToken))
         {
             answerBuilder.Append(delta);

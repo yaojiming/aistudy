@@ -23,7 +23,7 @@ public class MockVisionModelProvider : IVisionModelProvider
     /// Phase 2 不接 GLM 视觉模型，因此这里不上传图片、不请求外部接口；
     /// 只模拟“识别题目 -> 讲解步骤 -> 给出答案”的返回格式。
     /// </remarks>
-    public Task<string> AnalyzeImageAsync(string imageUrl, string prompt, CancellationToken cancellationToken = default)
+    public Task<string> AnalyzeImageAsync(string imageUrl, string prompt, bool enableThinking = false, string? modelName = null, CancellationToken cancellationToken = default)
     {
         var answer = """
             我从图片里模拟识别到一道数学题：24 ÷ 3 = ?
@@ -45,16 +45,17 @@ public class MockVisionModelProvider : IVisionModelProvider
     /// </summary>
     /// <param name="imageUrl">图片路径。</param>
     /// <param name="prompt">视觉 Prompt。</param>
-    /// <param name="thinkingMode">思考模式，占位保留。</param>
+    /// <param name="enableThinking">是否启用思考模式，占位保留。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>模拟增量文本片段。</returns>
     public async IAsyncEnumerable<string> AnalyzeImageStreamAsync(
         string imageUrl,
         string prompt,
-        string? thinkingMode = null,
+        bool enableThinking = false,
+        string? modelName = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var answer = await AnalyzeImageAsync(imageUrl, prompt, cancellationToken);
+        var answer = await AnalyzeImageAsync(imageUrl, prompt, enableThinking, modelName, cancellationToken);
         for (var index = 0; index < answer.Length; index += 12)
         {
             cancellationToken.ThrowIfCancellationRequested();
