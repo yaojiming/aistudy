@@ -20,6 +20,7 @@ public sealed class MockHomeworkCheckWorkflowService : IHomeworkCheckWorkflowSer
         IReadOnlyList<HomeworkQuestionRegion> questions,
         string? modelName = null,
         bool enableThinking = false,
+        byte[]? imageBytes = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Mock homework check started. ImagePath={ImagePath}, Count={Count}", imagePath, questions.Count);

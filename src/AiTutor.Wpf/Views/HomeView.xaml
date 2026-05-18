@@ -1,0 +1,89 @@
+<UserControl x:Class="AiTutor.Wpf.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#F8FAFC">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="78" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
+            <StackPanel VerticalAlignment="Top">
+                <TextBlock FontSize="26" FontWeight="Bold" Foreground="#1E293B">
+                    <Run Text="早安，" />
+                    <Run Text="小状元！" Foreground="#2563EB" />
+                </TextBlock>
+                <TextBlock Text="每天进步一点点，开启智慧的一天吧。" FontSize="14" Foreground="#64748B" Margin="0,6,0,0" />
+            </StackPanel>
+
+            <Button Grid.Column="1" Content="五年级语文" Style="{StaticResource SoftButton}" Width="130" Height="42" FontSize="13" Margin="0,0,12,0" />
+            <Button Grid.Column="2" Content="设置" Command="{Binding OpenSettingsCommand}" Style="{StaticResource SoftButton}" Width="72" Height="42" FontSize="13" />
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="*,*">
+            <Button Command="{Binding OpenChatCommand}" BorderThickness="0" Foreground="White" Padding="26" FontWeight="Bold" Margin="0,0,14,11">
+                <Button.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#6366F1" Offset="0" />
+                        <GradientStop Color="#2563EB" Offset="1" />
+                    </LinearGradientBrush>
+                </Button.Background>
+                <StackPanel VerticalAlignment="Center">
+                    <Border Width="68" Height="68" CornerRadius="18" Background="#33FFFFFF" HorizontalAlignment="Left" Margin="0,0,0,14">
+                        <TextBlock Text="AI" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="问 AI 老师" FontSize="24" FontWeight="Bold" />
+                    <TextBlock Text="有问必答，像百科全书一样讲解知识难点、成语典故、随问随答。" FontSize="18" FontWeight="Normal" Foreground="#EEF2FF" TextWrapping="Wrap" Margin="0,10,0,0" LineHeight="23" />
+                </StackPanel>
+            </Button>
+
+            <Button Grid.Column="1" Command="{Binding OpenPhotoQuestionCommand}" BorderThickness="0" Foreground="White" Padding="26" FontWeight="Bold" Margin="14,0,0,11">
+                <Button.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#10B981" Offset="0" />
+                        <GradientStop Color="#0F766E" Offset="1" />
+                    </LinearGradientBrush>
+                </Button.Background>
+                <StackPanel VerticalAlignment="Center">
+                    <Border Width="68" Height="68" CornerRadius="18" Background="#33FFFFFF" HorizontalAlignment="Left" Margin="0,0,0,14">
+                        <TextBlock Text="拍" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="拍照讲题" FontSize="24" FontWeight="Bold" />
+                    <TextBlock Text="对着题目拍一拍，AI 老师立即为你拆解思路，举一反三，彻底学通。" FontSize="18" FontWeight="Normal" Foreground="#E1FFF5" TextWrapping="Wrap" Margin="0,10,0,0" LineHeight="23" />
+                </StackPanel>
+            </Button>
+
+            <Button Grid.Row="1" Command="{Binding OpenHomeworkCheckCommand}" BorderThickness="0" Foreground="White" Padding="26" FontWeight="Bold" Margin="0,11,14,0">
+                <Button.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#F59E0B" Offset="0" />
+                        <GradientStop Color="#F97316" Offset="1" />
+                    </LinearGradientBrush>
+                </Button.Background>
+                <StackPanel VerticalAlignment="Center">
+                    <Border Width="68" Height="68" CornerRadius="18" Background="#33FFFFFF" HorizontalAlignment="Left" Margin="0,0,0,14">
+                        <TextBlock Text="检" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="检查作业" FontSize="24" FontWeight="Bold" />
+                    <TextBlock Text="整页批改，错因智能分析，不仅告诉你错了，更告诉你为什么错。" FontSize="18" FontWeight="Normal" Foreground="#FFF7D6" TextWrapping="Wrap" Margin="0,10,0,0" LineHeight="23" />
+                </StackPanel>
+            </Button>
+
+            <Button Grid.Row="1" Grid.Column="1" Command="{Binding OpenWrongBookCommand}" BorderThickness="0" Foreground="White" Padding="26" FontWeight="Bold" Margin="14,11,0,0">
+                <Button.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#FB7185" Offset="0" />
+                        <GradientStop Color="#E11D48" Offset="1" />
+                    </LinearGradientBrush>
+                </Button.Background>
+                <StackPanel VerticalAlignment="Center">
+                    <Border Width="68" Height="68" CornerRadius="18" Background="#33FFFFFF" HorizontalAlignment="Left" Margin="0,0,0,14">
+                        <TextBlock Text="错" FontSize="30" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="错题复习" FontSize="24" FontWeight="Bold" />
+                    <TextBlock Text="基于艾宾浩斯记忆曲线，科学安排错题重做，彻底告别重复错误。" FontSize="18" FontWeight="Normal" Foreground="#FFE4EA" TextWrapping="Wrap" Margin="0,10,0,0" LineHeight="23" />
+                </StackPanel>
+            </Button>
+        </Grid>
+    </Grid>
+</UserControl>

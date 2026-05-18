@@ -1,15 +1,20 @@
 ﻿using System.Globalization;
-using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Markdig;
 
 namespace AiTutor.Maui.Controls;
 
 /// <summary>
 /// 鐢ㄤ簬鎷嶇収璁查銆佷綔涓氭鏌ョ瓑椤甸潰鐨?Markdown/LaTeX 绛旀灞曠ず鎺т欢銆?/// WebView 鍙垵濮嬪寲涓€娆★紝娴佸紡杈撳嚭鏃堕€氳繃 JavaScript 鏇存柊姝ｆ枃锛岄伩鍏嶆粴鍔ㄦ潯涓婁笅璺冲姩銆?/// </summary>
-public sealed class FormattedAnswerView : ContentView
+public sealed partial class FormattedAnswerView : ContentView
 {
+#if WINDOWS
+    private const bool PreferNativeTextRenderer = true;
+#else
+    private const bool PreferNativeTextRenderer = false;
+#endif
+
     public static readonly BindableProperty TextProperty = BindableProperty.Create(
         nameof(Text),
         typeof(string),
@@ -45,20 +50,53 @@ public sealed class FormattedAnswerView : ContentView
         VerticalOptions = LayoutOptions.Fill
     };
 
+    private readonly Grid _rootLayout = new();
+    private readonly Label _nativeTextLabel = new()
+    {
+        FontSize = 16,
+        LineHeight = 1.45,
+        TextColor = Color.FromArgb("#334155"),
+        HorizontalOptions = LayoutOptions.Fill,
+        VerticalOptions = LayoutOptions.Start
+    };
+
+    private readonly ScrollView _nativeTextScrollView = new()
+    {
+        Orientation = ScrollOrientation.Vertical,
+        HorizontalOptions = LayoutOptions.Fill,
+        VerticalOptions = LayoutOptions.Fill
+    };
+
     private bool _isWebViewInitialized;
     private bool _isDocumentLoaded;
     private int _renderVersion;
-    private string _pendingBodyHtml = "<p></p>";
-    private string _pendingPlainText = string.Empty;
+    private string _pendingContentHtml = "<p></p>";
+    private bool _pendingRunMathJax;
 
     public FormattedAnswerView()
     {
         _webView.Navigated += OnWebViewNavigated;
         _webView.HandlerChanged += OnWebViewHandlerChanged;
         Loaded += OnLoaded;
-        Content = _webView;
+        Unloaded += OnUnloaded;
 
-        _pendingBodyHtml = MarkdownToHtml(NormalizeNewLines(Text ?? string.Empty));
+        _nativeTextScrollView.Content = _nativeTextLabel;
+        _rootLayout.Children.Add(_nativeTextScrollView);
+        _rootLayout.Children.Add(_webView);
+        Content = _rootLayout;
+
+        UpdateNativeTextFallback(NormalizeNewLines(Text ?? string.Empty));
+        UpdateRendererVisibility();
+
+        _pendingContentHtml = MarkdownToHtml(NormalizeNewLines(Text ?? string.Empty));
+    }
+
+    private void OnUnloaded(object? sender, EventArgs e)
+    {
+        _webView.Navigated -= OnWebViewNavigated;
+        _webView.HandlerChanged -= OnWebViewHandlerChanged;
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
     }
 
     public string Text
@@ -90,36 +128,45 @@ public sealed class FormattedAnswerView : ContentView
         ((FormattedAnswerView)bindable).UpdateFormattedText();
     }
 
-    /// <summary>
-    /// 灏嗘柊鍐呭鍐欏叆宸叉湁 WebView 鏂囨。锛岄伩鍏嶆瘡涓祦寮?delta 閮介噸鏂板姞杞芥暣椤点€?    /// </summary>
     private async void UpdateFormattedText()
     {
         var normalizedText = NormalizeNewLines(Text ?? string.Empty);
+        UpdateNativeTextFallback(normalizedText);
+
         if (IsStreaming)
         {
-            _pendingPlainText = normalizedText;
+            // Lightweight: escape HTML + <br> for line breaks. LaTeX delimiters ($...$) stay visible as raw text.
+            _pendingContentHtml = EscapeHtmlWithBreaks(normalizedText);
+            _pendingRunMathJax = false;
         }
         else
         {
-            _pendingBodyHtml = MarkdownToHtml(normalizedText);
+            // Final render: full Markdig parse + MathJax typesetting.
+            _pendingContentHtml = MarkdownToHtml(normalizedText);
+            _pendingRunMathJax = true;
         }
 
         EnsureWebViewDocumentLoaded();
 
         if (!_isDocumentLoaded)
-        {
             return;
-        }
 
         var version = ++_renderVersion;
-        if (IsStreaming)
-        {
-            await RenderPlainTextAsync(version);
-        }
-        else
-        {
-            await RenderPendingContentAsync(version);
-        }
+        await RenderContentAsync(version);
+    }
+
+    private static string EscapeHtmlWithBreaks(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "<p></p>";
+
+        var escaped = text
+            .Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal)
+            .Replace("\n", "<br>", StringComparison.Ordinal);
+
+        return $"<p style=\"white-space:pre-wrap\">{escaped}</p>";
     }
 
     /// <summary>
@@ -127,17 +174,17 @@ public sealed class FormattedAnswerView : ContentView
     private async void OnWebViewNavigated(object? sender, WebNavigatedEventArgs e)
     {
         _isDocumentLoaded = true;
-        var version = ++_renderVersion;
+        UpdateRendererVisibility();
+
+        var normalized = NormalizeNewLines(Text ?? string.Empty);
         if (IsStreaming)
-        {
-            _pendingPlainText = NormalizeNewLines(Text ?? string.Empty);
-            await RenderPlainTextAsync(version);
-        }
+            _pendingContentHtml = EscapeHtmlWithBreaks(normalized);
         else
-        {
-            _pendingBodyHtml = MarkdownToHtml(NormalizeNewLines(Text ?? string.Empty));
-            await RenderPendingContentAsync(version);
-        }
+            _pendingContentHtml = MarkdownToHtml(normalized);
+        _pendingRunMathJax = !IsStreaming;
+
+        var version = ++_renderVersion;
+        await RenderContentAsync(version);
     }
 
     /// <summary>
@@ -182,24 +229,23 @@ public sealed class FormattedAnswerView : ContentView
         };
     }
 
-    private async Task RenderPendingContentAsync(int version)
+    private async Task RenderContentAsync(int version)
     {
         try
         {
-            await Task.Delay(20);
+            await Task.Delay(_pendingRunMathJax ? 20 : 35);
             if (version != _renderVersion)
-            {
                 return;
-            }
 
-            var bodyJson = JsonSerializer.Serialize(_pendingBodyHtml);
+            var htmlJson = JsonSerializer.Serialize(_pendingContentHtml);
+            var runMathJaxJson = JsonSerializer.Serialize(_pendingRunMathJax);
             var colorJson = JsonSerializer.Serialize(ToCssColor(AnswerTextColor));
             var fontSizeJson = JsonSerializer.Serialize(AnswerFontSize.ToString(CultureInfo.InvariantCulture) + "px");
 
             await _webView.EvaluateJavaScriptAsync($$"""
-                (function () {
-                    if (window.setAnswerHtml) {
-                        return window.setAnswerHtml({{bodyJson}}, {{colorJson}}, {{fontSizeJson}});
+                (function(){
+                    if(window.setAnswerHtml){
+                        return window.setAnswerHtml({{htmlJson}},{{runMathJaxJson}},{{colorJson}},{{fontSizeJson}});
                     }
                     return 'missing-setAnswerHtml';
                 })();
@@ -207,35 +253,29 @@ public sealed class FormattedAnswerView : ContentView
         }
         catch
         {
-            // 渲染失败时保持 WebView 当前内容，避免打断流式回答。
+            ShowNativeTextFallback();
         }
     }
 
-    private async Task RenderPlainTextAsync(int version)
+    private void UpdateNativeTextFallback(string normalizedText)
     {
-        try
-        {
-            await Task.Delay(35);
-            if (version != _renderVersion)
-            {
-                return;
-            }
+        _nativeTextLabel.Text = MarkdownToReadableText(normalizedText);
+        _nativeTextLabel.TextColor = AnswerTextColor;
+        _nativeTextLabel.FontSize = AnswerFontSize;
+        UpdateRendererVisibility();
+    }
 
-            var textJson = JsonSerializer.Serialize(_pendingPlainText);
+    private void UpdateRendererVisibility()
+    {
+        var useNativeText = PreferNativeTextRenderer || !_isDocumentLoaded;
+        _nativeTextScrollView.IsVisible = useNativeText;
+        _webView.IsVisible = !useNativeText;
+    }
 
-            await _webView.EvaluateJavaScriptAsync($$"""
-                (function () {
-                    if (window.setAnswerText) {
-                        return window.setAnswerText({{textJson}});
-                    }
-                    return 'missing-setAnswerText';
-                })();
-                """);
-        }
-        catch
-        {
-            // 流式渲染失败不要中断回答，下一次 delta 或最终渲染会继续尝试。
-        }
+    private void ShowNativeTextFallback()
+    {
+        _nativeTextScrollView.IsVisible = true;
+        _webView.IsVisible = false;
     }
 
     private static string BuildHtmlDocument(Color textColor, double fontSize)
@@ -374,56 +414,60 @@ public sealed class FormattedAnswerView : ContentView
               <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
               <script>
                 (function () {
+                  const answerEl = document.getElementById('answer');
+
                   const scrollToBottom = function () {
-                    window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
+                    // Try multiple approaches for WebView compatibility.
+                    var h = Math.max(
+                      document.body.scrollHeight || 0,
+                      document.documentElement.scrollHeight || 0,
+                      document.body.offsetHeight || 0,
+                      document.documentElement.offsetHeight || 0
+                    );
+                    window.scrollTo({ top: h, behavior: 'instant' });
+                    document.documentElement.scrollTop = h;
+                    document.body.scrollTop = h;
+                    // Fallback: scroll last element into view.
+                    if (answerEl && answerEl.lastElementChild) {
+                      answerEl.lastElementChild.scrollIntoView(false);
+                    }
                   };
 
-                  let pendingText = '';
+                  let pending = null;
                   let pendingFrame = 0;
 
-                  window.setAnswerText = function (text) {
-                    pendingText = text || '';
-                    if (pendingFrame) {
-                      return 'queued';
-                    }
+                  window.setAnswerHtml = function (html, runMathJax, color, fontSize) {
+                    pending = { html: html || '', runMathJax: !!runMathJax, color: color, fontSize: fontSize };
+                    if (pendingFrame) return 'queued';
 
                     pendingFrame = requestAnimationFrame(function () {
                       pendingFrame = 0;
-                      const answer = document.getElementById('answer');
-                      if (!answer) {
-                        return;
+                      const p = pending;
+                      if (!p || !answerEl) return;
+
+                      document.documentElement.style.setProperty('--answer-color', p.color);
+                      document.documentElement.style.setProperty('--answer-font-size', p.fontSize);
+
+                      if (p.runMathJax) {
+                        answerEl.classList.remove('streaming');
+                        answerEl.classList.add('final');
+                      } else {
+                        answerEl.classList.add('streaming');
+                        answerEl.classList.remove('final');
                       }
 
-                      answer.classList.remove('final');
-                      answer.classList.add('streaming');
-                      answer.textContent = pendingText;
-                      scrollToBottom();
+                      answerEl.innerHTML = p.html;
+
+                      // Defer scroll until after the browser finishes layout (double-rAF).
+                      requestAnimationFrame(function () {
+                        if (p.runMathJax && window.MathJax && MathJax.typesetPromise) {
+                          if (MathJax.typesetClear) MathJax.typesetClear([answerEl]);
+                          MathJax.typesetPromise([answerEl]).then(scrollToBottom).catch(scrollToBottom);
+                        } else {
+                          scrollToBottom();
+                        }
+                      });
                     });
-
-                    return 'ok';
-                  };
-
-                  window.setAnswerHtml = function (html, color, fontSize) {
-                    const answer = document.getElementById('answer');
-                    if (!answer) {
-                      return 'missing-answer';
-                    }
-
-                    document.documentElement.style.setProperty('--answer-color', color);
-                    document.documentElement.style.setProperty('--answer-font-size', fontSize);
-                    answer.classList.remove('streaming');
-                    answer.classList.add('final');
-                    answer.innerHTML = html || '';
-
-                    if (window.MathJax && MathJax.typesetPromise) {
-                      if (MathJax.typesetClear) {
-                        MathJax.typesetClear([answer]);
-                      }
-
-                      MathJax.typesetPromise([answer]).then(scrollToBottom).catch(scrollToBottom);
-                    } else {
-                      scrollToBottom();
-                    }
 
                     return 'ok';
                   };
@@ -447,118 +491,63 @@ public sealed class FormattedAnswerView : ContentView
             .Trim();
     }
 
+    private static string MarkdownToReadableText(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return string.Empty;
+        }
+
+        var text = NormalizeNewLines(markdown)
+            .Replace(":::thinking", "思考过程：", StringComparison.Ordinal)
+            .Replace(":::", string.Empty, StringComparison.Ordinal);
+
+        text = Regex.Replace(text, @"(?m)^\s{0,3}#{1,6}\s*", string.Empty);
+        text = Regex.Replace(text, @"(\*\*|__)(.+?)\1", "$2");
+        text = Regex.Replace(text, @"`(.+?)`", "$1");
+        text = Regex.Replace(text, @"\\+(?:text|mathrm|operatorname)\{([^{}]*)\}", "$1");
+        text = Regex.Replace(text, @"\\+(?:dfrac|tfrac|frac)\{([^{}]+)\}\{([^{}]+)\}", "$1/$2");
+        text = Regex.Replace(text, @"\\+(?:left|right)", string.Empty);
+        text = Regex.Replace(text, @"\\+(?:quad|qquad|,|;|:|!)", " ");
+        text = Regex.Replace(text, @"\\+\(|\\+\)|\\+\[|\\+\]", string.Empty);
+        text = Regex.Replace(text, @"\${1,2}([^$]+?)\${1,2}", "$1");
+
+        return text
+            .Replace("\\n", Environment.NewLine, StringComparison.Ordinal)
+            .Replace("\\", string.Empty, StringComparison.Ordinal)
+            .Trim();
+    }
+
     /// <summary>
     /// 杞婚噺瑙ｆ瀽妯″瀷甯哥敤 Markdown銆侺aTeX 鍘熸牱淇濈暀缁?MathJax 澶勭悊銆?    /// </summary>
     private static string MarkdownToHtml(string markdown)
     {
         if (string.IsNullOrWhiteSpace(markdown))
-        {
             return "<p></p>";
-        }
 
-        var html = new StringBuilder();
-        var lines = markdown.Split('\n');
-        var listMode = ListMode.None;
-
-        for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+        var thinkingBlocks = new List<string>();
+        var preprocessed = ThinkingBlockRegex().Replace(markdown, match =>
         {
-            var rawLine = lines[lineIndex];
-            var line = rawLine.TrimEnd();
-            if (line.Trim() == ":::thinking")
-            {
-                CloseListIfNeeded(html, ref listMode);
-                var thinkingMarkdown = new StringBuilder();
-                lineIndex++;
-                while (lineIndex < lines.Length && lines[lineIndex].Trim() != ":::")
-                {
-                    thinkingMarkdown.AppendLine(lines[lineIndex]);
-                    lineIndex++;
-                }
+            var i = thinkingBlocks.Count;
+            thinkingBlocks.Add(match.Groups[1].Value.Trim());
+            return $"<!--thinking-{i}-->";
+        });
 
-                html.Append(BuildThinkingDetailsHtml(thinkingMarkdown.ToString()));
-                continue;
-            }
+        var pipeline = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .Build();
+        var html = Markdig.Markdown.ToHtml(preprocessed, pipeline);
 
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                CloseListIfNeeded(html, ref listMode);
-                continue;
-            }
-
-            var heading = Regex.Match(line, @"^\s{0,3}(#{1,4})\s+(.+)$");
-            if (heading.Success)
-            {
-                CloseListIfNeeded(html, ref listMode);
-                var level = Math.Min(heading.Groups[1].Value.Length, 4);
-                html.Append(CultureInfo.InvariantCulture, $"<h{level}>{InlineMarkdownToHtml(heading.Groups[2].Value)}</h{level}>");
-                continue;
-            }
-
-            var bullet = Regex.Match(line, @"^\s*[-*+]\s+(.+)$");
-            if (bullet.Success)
-            {
-                OpenListIfNeeded(html, ref listMode, ListMode.Unordered);
-                html.Append(CultureInfo.InvariantCulture, $"<li>{InlineMarkdownToHtml(bullet.Groups[1].Value)}</li>");
-                continue;
-            }
-
-            var ordered = Regex.Match(line, @"^\s*\d+(?:[.)]|\u3001|\uFF0E)\s+(.+)$");
-            if (ordered.Success)
-            {
-                OpenListIfNeeded(html, ref listMode, ListMode.Ordered);
-                html.Append(CultureInfo.InvariantCulture, $"<li>{InlineMarkdownToHtml(ordered.Groups[1].Value)}</li>");
-                continue;
-            }
-
-            CloseListIfNeeded(html, ref listMode);
-            html.Append(CultureInfo.InvariantCulture, $"<p>{InlineMarkdownToHtml(line)}</p>");
-        }
-
-        CloseListIfNeeded(html, ref listMode);
-        return html.ToString();
-    }
-
-    /// <summary>
-    /// 灏嗘€濊€冭繃绋嬫覆鏌撲负榛樿鎶樺彔鐨?details 鍖哄潡锛屾寮忕瓟妗堜繚鎸佺洿鎺ュ彲瑙併€?    /// </summary>
-    private static string BuildThinkingDetailsHtml(string thinkingMarkdown)
-    {
-        var bodyHtml = MarkdownToHtml(thinkingMarkdown);
-        return
-            $"<details class=\"thinking-panel\"><summary>&#26597;&#30475;&#24605;&#32771;&#36807;&#31243;</summary><div class=\"thinking-body\">{bodyHtml}</div></details>";
-    }
-
-    private static string InlineMarkdownToHtml(string text)
-    {
-        var encoded = WebUtility.HtmlEncode(text);
-
-        encoded = Regex.Replace(encoded, @"(\*\*|__)(.+?)\1", "<strong>$2</strong>");
-        encoded = Regex.Replace(encoded, @"`(.+?)`", "<code>$1</code>");
-        encoded = Regex.Replace(encoded, @"^【([^】]+)】", "<span class=\"section-title\">【$1】</span>");
-
-        return encoded;
-    }
-
-    private static void OpenListIfNeeded(StringBuilder html, ref ListMode currentMode, ListMode nextMode)
-    {
-        if (currentMode == nextMode)
+        for (var i = 0; i < thinkingBlocks.Count; i++)
         {
-            return;
+            var innerHtml = Markdig.Markdown.ToHtml(thinkingBlocks[i], pipeline);
+            var details = $"<details class=\"thinking-panel\"><summary>&#26597;&#30475;&#24605;&#32771;&#36807;&#31243;</summary><div class=\"thinking-body\">{innerHtml}</div></details>";
+            html = html.Replace($"<!--thinking-{i}-->", details);
         }
 
-        CloseListIfNeeded(html, ref currentMode);
-        html.Append(nextMode == ListMode.Ordered ? "<ol>" : "<ul>");
-        currentMode = nextMode;
-    }
+        html = SectionTitleRegex().Replace(html, "<span class=\"section-title\">$1</span>");
 
-    private static void CloseListIfNeeded(StringBuilder html, ref ListMode currentMode)
-    {
-        if (currentMode == ListMode.None)
-        {
-            return;
-        }
-
-        html.Append(currentMode == ListMode.Ordered ? "</ol>" : "</ul>");
-        currentMode = ListMode.None;
+        return html;
     }
 
     private static string ToCssColor(Color color)
@@ -569,10 +558,9 @@ public sealed class FormattedAnswerView : ContentView
         return FormattableString.Invariant($"rgb({red},{green},{blue})");
     }
 
-    private enum ListMode
-    {
-        None,
-        Unordered,
-        Ordered
-    }
+    [GeneratedRegex(@":::thinking\s*\n(.*?)\n\s*:::", RegexOptions.Singleline)]
+    private static partial Regex ThinkingBlockRegex();
+
+    [GeneratedRegex(@"【([^】]+)】")]
+    private static partial Regex SectionTitleRegex();
 }

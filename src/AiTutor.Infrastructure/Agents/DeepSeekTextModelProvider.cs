@@ -42,7 +42,8 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     /// <summary>
     /// 调用 DeepSeek 文本模型生成完整回答。
     /// </summary>
-    public async Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+    /// <param name="enableThinking">是否启用思考模式。DeepSeek 无官方 thinking API，通过 system prompt 措辞模拟。</param>
+    public async Task<string> GenerateAsync(string prompt, bool enableThinking = false, CancellationToken cancellationToken = default)
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.DeepSeek.ApiKey))
         {
@@ -60,7 +61,7 @@ public class DeepSeekTextModelProvider : ITextModelProvider
                 model = ModelName,
                 messages = new[]
                 {
-                    new { role = "system", content = BuildSystemPrompt(enableThinking: false) },
+                    new { role = "system", content = BuildSystemPrompt(enableThinking) },
                     new { role = "user", content = prompt }
                 },
                 temperature = 0.3,
@@ -106,7 +107,7 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.DeepSeek.ApiKey))
         {
-            yield return await GenerateAsync(prompt, cancellationToken);
+            yield return await GenerateAsync(prompt, enableThinking, cancellationToken);
             yield break;
         }
 
@@ -134,7 +135,7 @@ public class DeepSeekTextModelProvider : ITextModelProvider
         using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
         if (!response.IsSuccessStatusCode)
         {
-            yield return await GenerateAsync(prompt, cancellationToken);
+            yield return await GenerateAsync(prompt, enableThinking, cancellationToken);
             yield break;
         }
 

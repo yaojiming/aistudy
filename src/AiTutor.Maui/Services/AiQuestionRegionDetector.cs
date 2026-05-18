@@ -20,15 +20,18 @@ public sealed class AiQuestionRegionDetector : IAiQuestionRegionDetector
 
     private readonly IApiClientService _apiClientService;
     private readonly IAppSettingsService _settingsService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<AiQuestionRegionDetector> _logger;
 
     public AiQuestionRegionDetector(
         IApiClientService apiClientService,
         IAppSettingsService settingsService,
+        ICurrentUserService currentUserService,
         ILogger<AiQuestionRegionDetector> logger)
     {
         _apiClientService = apiClientService;
         _settingsService = settingsService;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -55,12 +58,12 @@ public sealed class AiQuestionRegionDetector : IAiQuestionRegionDetector
                 imageBytes,
                 $"homework-region-detect-{DateTime.UtcNow:yyyyMMddHHmmss}.jpg",
                 "homework_region_detect",
-                "test-user",
+                _currentUserService.UserId,
                 cancellationToken);
 
             var response = await _apiClientService.AskAsync(new AgentRequest
             {
-                UserId = "test-user",
+                UserId = _currentUserService.UserId,
                 Grade = _settingsService.GetCurrentGrade(),
                 Subject = "数学",
                 InputType = "image",

@@ -48,7 +48,7 @@ public interface ITextModelProvider
 
     string ModelName { get; }
 
-    Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default);
+    Task<string> GenerateAsync(string prompt, bool enableThinking = false, CancellationToken cancellationToken = default);
 
     IAsyncEnumerable<string> GenerateStreamAsync(string prompt, bool enableThinking = false, CancellationToken cancellationToken = default);
 }

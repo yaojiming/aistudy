@@ -22,9 +22,16 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
+        builder.Services.AddSingleton<ICurrentUserService, CurrentUserService>();
         builder.Services.AddSingleton<IAppSettingsService, AppSettingsService>();
         builder.Services.AddSingleton<ITabletMediaPickerService, TabletMediaPickerService>();
+#if ANDROID
         builder.Services.AddSingleton<IOcrService, AndroidOcrService>();
+#elif WINDOWS
+        builder.Services.AddSingleton<IOcrService, WindowsOcrService>();
+#else
+        builder.Services.AddSingleton<IOcrService, NoopOcrService>();
+#endif
         builder.Services.AddSingleton<IQuestionRegionBuilder, QuestionRegionBuilder>();
         builder.Services.AddSingleton<IImageCropService, ImageCropService>();
         builder.Services.AddSingleton<IImageOrientationService, ImageOrientationService>();

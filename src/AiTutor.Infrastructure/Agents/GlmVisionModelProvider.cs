@@ -81,19 +81,19 @@ public class GlmVisionModelProvider : IVisionModelProvider
                 false,
                 prompt.Length);
 
-            using var response = await SendWithRateLimitRetryAsync(
+            using var response = await SendWith429RetryAsync(
                 () => _httpClient.PostAsJsonAsync(endpoint, BuildVisionPayload(requestModelName, prompt, modelImageUrl, false, enableThinking, includeThinking: true), timeoutCts.Token),
                 timeoutCts.Token);
             var responseText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
 
-            if (!response.IsSuccessStatusCode && IsThinkingUnsupported(response, responseText))
+            if (!response.IsSuccessStatusCode && !IsRateLimited(response) && IsThinkingUnsupported(response, responseText))
             {
                 _logger.LogWarning(
                     "GLM vision model does not support thinking parameter. Model={Model}, EnableThinking={EnableThinking}. Retrying without thinking.",
                     requestModelName,
                     enableThinking);
 
-                using var fallbackResponse = await SendWithRateLimitRetryAsync(
+                using var fallbackResponse = await SendWith429RetryAsync(
                     () => _httpClient.PostAsJsonAsync(endpoint, BuildVisionPayload(requestModelName, prompt, modelImageUrl, false, enableThinking, includeThinking: false), timeoutCts.Token),
                     timeoutCts.Token);
                 responseText = await fallbackResponse.Content.ReadAsStringAsync(timeoutCts.Token);
@@ -158,7 +158,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
     {
         if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey) || string.IsNullOrWhiteSpace(imageUrl))
         {
-            yield return await AnalyzeImageAsync(imageUrl, prompt, enableThinking, modelName, cancellationToken);
+            yield return "GLM 视觉模型流式请求失败。状态码：" + (int)response.StatusCode + "。请稍后再试。";
             yield break;
         }
 
@@ -200,7 +200,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
         if (!response.IsSuccessStatusCode)
         {
             var errorText = await response.Content.ReadAsStringAsync(timeoutCts.Token);
-            if (IsThinkingUnsupported(response, errorText))
+            if (!IsRateLimited(response) && IsThinkingUnsupported(response, errorText))
             {
                 _logger.LogWarning(
                     "GLM vision model does not support thinking parameter. Model={Model}, EnableThinking={EnableThinking}. Retrying stream without thinking.",
@@ -225,7 +225,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
                 yield break;
             }
 
-            yield return await AnalyzeImageAsync(imageUrl, prompt, enableThinking, modelName, cancellationToken);
+            yield return "GLM 视觉模型流式请求失败。状态码：" + (int)response.StatusCode + "。请稍后再试。";
             yield break;
         }
 
@@ -508,50 +508,6 @@ public class GlmVisionModelProvider : IVisionModelProvider
         return timeoutCts;
     }
 
-    private async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(
-        Func<Task<HttpResponseMessage>> sendAsync,
-        CancellationToken cancellationToken)
-    {
-        const int maxAttempts = 3;
-
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            var response = await sendAsync();
-            if (!IsRateLimited(response) || attempt == maxAttempts)
-            {
-                return response;
-            }
-
-            var delay = GetRetryDelay(response, attempt);
-            _logger.LogWarning(
-                "GLM vision call rate limited. Attempt={Attempt}/{MaxAttempts}, DelayMs={DelayMs}",
-                attempt,
-                maxAttempts,
-                delay.TotalMilliseconds);
-
-            response.Dispose();
-            await Task.Delay(delay, cancellationToken);
-        }
-
-        throw new InvalidOperationException("GLM 视觉模型限流重试状态异常。");
-    }
-
-    private static bool IsRateLimited(HttpResponseMessage response)
-    {
-        return (int)response.StatusCode == 429;
-    }
-
-    private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
-    {
-        if (response.Headers.RetryAfter?.Delta is { } delta && delta > TimeSpan.Zero)
-        {
-            return delta > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : delta;
-        }
-
-        if (response.Headers.RetryAfter?.Date is { } date)
-        {
-            var delay = date - DateTimeOffset.UtcNow;
-            if (delay > TimeSpan.Zero)
             {
                 return delay > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : delay;
             }
@@ -618,5 +574,36 @@ public class GlmVisionModelProvider : IVisionModelProvider
     private readonly record struct ModelDelta(ModelDeltaKind Kind, string? Text)
     {
         public static ModelDelta Empty => new(ModelDeltaKind.None, null);
+    }
+
+    private async Task<HttpResponseMessage> SendWith429RetryAsync(
+        Func<Task<HttpResponseMessage>> sendAsync,
+        CancellationToken cancellationToken)
+    {
+        var response = await sendAsync();
+        if (!IsRateLimited(response)) return response;
+
+        var waitSeconds = Math.Max(GetRetryAfterSeconds(response), 35);
+        _logger.LogWarning("GLM 429 rate limited, waiting {WaitSeconds}s before single retry", waitSeconds);
+        response.Dispose();
+        await Task.Delay(TimeSpan.FromSeconds(waitSeconds), cancellationToken);
+        return await sendAsync();
+    }
+
+    private static bool IsRateLimited(HttpResponseMessage response)
+    {
+        return (int)response.StatusCode == 429;
+    }
+
+    private static double GetRetryAfterSeconds(HttpResponseMessage response)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } delta && delta > TimeSpan.Zero)
+            return Math.Min(delta.TotalSeconds, 60);
+        if (response.Headers.RetryAfter?.Date is { } date)
+        {
+            var s = (date - DateTimeOffset.UtcNow).TotalSeconds;
+            return s > 0 ? Math.Min(s, 60) : 0;
+        }
+        return 0;
     }
 }

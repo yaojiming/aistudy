@@ -209,11 +209,11 @@
                                                TextColor="#64748B"
                                                LineBreakMode="TailTruncation"
                                                VerticalTextAlignment="Center" />
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectQuestionCommand}"
-                                                                  CommandParameter="{Binding .}" />
-                                        </Grid.GestureRecognizers>
                                     </Grid>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectQuestionCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
                                 </Border>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
@@ -242,7 +242,7 @@
                 </Grid>
 
                 <Grid Grid.Row="2"
-                      ColumnDefinitions="*,*,*,*"
+                      ColumnDefinitions="*,*"
                       ColumnSpacing="14">
                     <Button Grid.Column="0"
                             Text="{Binding StartCheckButtonText}"
@@ -254,15 +254,6 @@
                             TextColor="#FFFFFF"
                             IsEnabled="{Binding CanStartCheck}"
                             Command="{Binding StartCheckCommand}" />
-                    <!--<Button Grid.Column="1"
-                            Text="重新识别"
-                            HeightRequest="54"
-                            CornerRadius="18"
-                            FontSize="16"
-                            FontAttributes="Bold"
-                            BackgroundColor="#0F172A"
-                            TextColor="#FFFFFF"
-                            Command="{Binding ReDetectCommand}" />-->
                     <Button Grid.Column="1"
                             Text="加入错题本"
                             HeightRequest="54"
@@ -273,16 +264,6 @@
                             TextColor="#94A3B8"
                             Command="{Binding AddWrongCommand}"
                             CommandParameter="{Binding SelectedQuestion}" />
-                    <!--<Button Grid.Column="3"
-                            Text="生成类似题"
-                            HeightRequest="54"
-                            CornerRadius="18"
-                            FontSize="16"
-                            FontAttributes="Bold"
-                            BackgroundColor="#EEF2F7"
-                            TextColor="#94A3B8"
-                            Command="{Binding PracticeCommand}"
-                            CommandParameter="{Binding SelectedQuestion}" />-->
                 </Grid>
 
                 <controls:LoadingOverlay IsLoading="{Binding IsBlockingLoading}" LoadingText="正在处理作业图片..." />

@@ -32,3 +32,4 @@ logs/
 *.aab
 *.keystore
 /src/AiTutor.Api/wwwroot
+/artifacts

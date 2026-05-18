@@ -21,7 +21,7 @@
                            VerticalTextAlignment="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
-                    <Label Text="姚俊瑞"
+                    <Label Text="小状元"
                            FontSize="19"
                            FontAttributes="Bold"
                            TextColor="#1E293B" />
@@ -106,8 +106,8 @@
                            TextColor="#1E293B">
                         <Label.FormattedText>
                             <FormattedString>
-                                <Span Text="Hello，" />
-                                <Span Text="姚俊瑞！" TextColor="#2563EB" />
+                                <Span Text="早安，" />
+                                <Span Text="小状元！" TextColor="#2563EB" />
                             </FormattedString>
                         </Label.FormattedText>
                     </Label>
@@ -148,8 +148,7 @@
                   RowDefinitions="*,*"
                   ColumnSpacing="28"
                   RowSpacing="22">
-                <Border Padding="26"
-                        StrokeThickness="0">
+                <Border Padding="26" StrokeThickness="0">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                             <GradientStop Color="#6366F1" Offset="0" />
@@ -157,7 +156,7 @@
                         </LinearGradientBrush>
                     </Border.Background>
                     <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="26" />
+                        <RoundRectangle CornerRadius="26" />
                     </Border.StrokeShape>
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenChatCommand}" />
@@ -170,7 +169,7 @@
                             <Label Text="AI" FontSize="34" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
                         </Border>
                         <Label Text="问 AI 老师" FontSize="24" FontAttributes="Bold" TextColor="#FFFFFF" />
-                        <Label Text="有问必答，像百科全书一样讲解知识难点、成语典故、随问随答。"
+                        <Label Text="有问必答，像百科全书一样讲解知识难点、成语典故，随问随答。"
                                FontSize="18"
                                LineHeight="1.18"
                                TextColor="#EEF2FF" />
@@ -185,7 +184,7 @@
                         </LinearGradientBrush>
                     </Border.Background>
                     <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="26" />
+                        <RoundRectangle CornerRadius="26" />
                     </Border.StrokeShape>
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenPhotoQuestionCommand}" />
@@ -213,7 +212,7 @@
                         </LinearGradientBrush>
                     </Border.Background>
                     <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="26" />
+                        <RoundRectangle CornerRadius="26" />
                     </Border.StrokeShape>
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenHomeworkCheckCommand}" />
@@ -241,7 +240,7 @@
                         </LinearGradientBrush>
                     </Border.Background>
                     <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="26" />
+                        <RoundRectangle CornerRadius="26" />
                     </Border.StrokeShape>
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenWrongBookCommand}" />
@@ -254,7 +253,7 @@
                             <Label Text="错" FontSize="34" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
                         </Border>
                         <Label Text="错题复习" FontSize="24" FontAttributes="Bold" TextColor="#FFFFFF" />
-                        <Label Text="基于艾宾浩斯记忆曲线，科学安排错题重做，彻底告别重复错误。"
+                        <Label Text="基于记忆曲线，科学安排错题重做，彻底告别重复错误。"
                                FontSize="18"
                                LineHeight="1.18"
                                TextColor="#FFE4EA" />

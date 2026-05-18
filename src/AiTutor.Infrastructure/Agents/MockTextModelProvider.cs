@@ -21,7 +21,7 @@ public class MockTextModelProvider : ITextModelProvider
     /// 调用链：ChatAgent 或未来文本类 Agent 调用本方法。
     /// 这里不访问外网、不读取 API Key，只返回稳定文本，便于验证路由、保存和 Swagger 调用。
     /// </remarks>
-    public Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+    public Task<string> GenerateAsync(string prompt, bool enableThinking = false, CancellationToken cancellationToken = default)
     {
         var answer = """
             我们先不急着找答案，先看清楚题目在问什么。
@@ -48,7 +48,7 @@ public class MockTextModelProvider : ITextModelProvider
         bool enableThinking = false,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var answer = await GenerateAsync(prompt, cancellationToken);
+        var answer = await GenerateAsync(prompt, enableThinking, cancellationToken);
         foreach (var chunk in SplitForStreaming(answer))
         {
             cancellationToken.ThrowIfCancellationRequested();

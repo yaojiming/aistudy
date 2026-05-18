@@ -8,12 +8,13 @@ public class PhotoQuestionViewModel : ImageAskViewModelBase
     public PhotoQuestionViewModel(
         IApiClientService apiClientService,
         ITabletMediaPickerService mediaPickerService,
+        ICurrentUserService currentUserService,
         IAppSettingsService settingsService,
         IOcrService ocrService,
         IQuestionRegionBuilder questionRegionBuilder,
         IImageCropService imageCropService,
         ILogger<ImageAskViewModelBase> logger)
-        : base(apiClientService, mediaPickerService, settingsService, ocrService, questionRegionBuilder, imageCropService, logger)
+        : base(apiClientService, mediaPickerService, currentUserService, settingsService, ocrService, questionRegionBuilder, imageCropService, logger)
     {
     }
 

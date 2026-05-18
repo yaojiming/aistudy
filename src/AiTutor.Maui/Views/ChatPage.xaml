@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
-             xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
              x:Class="AiTutor.Maui.Views.ChatPage"
              Shell.NavBarIsVisible="False"
              Title="问 AI"
@@ -15,149 +13,104 @@
     </ContentPage.Resources>
 
     <Grid RowDefinitions="58,*,106" BackgroundColor="#F7F9FC">
+        <!-- Header -->
         <Border Grid.Row="0" BackgroundColor="#FFFFFF" StrokeThickness="0">
             <Border.Shadow>
                 <Shadow Brush="#000000" Offset="0,1" Radius="5" Opacity="0.07" />
             </Border.Shadow>
-
-            <Grid Padding="22,8,26,8" ColumnDefinitions="40,14,38,16,*,94" ColumnSpacing="0">
-                <Button Text="‹"
-                        FontSize="30"
-                        FontAttributes="Bold"
-                        BackgroundColor="#F5F8FC"
-                        TextColor="#2A405C"
-                        CornerRadius="15"
-                        Padding="0"
+            <Grid Padding="22,8,26,8" ColumnDefinitions="40,14,38,16,*,120,94" ColumnSpacing="6">
+                <Button Text="‹" FontSize="30" FontAttributes="Bold"
+                        BackgroundColor="#F5F8FC" TextColor="#2A405C"
+                        CornerRadius="15" Padding="0"
                         Command="{Binding BackCommand}" />
-
                 <Border Grid.Column="2" BackgroundColor="#DCEBFF" StrokeThickness="0">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="10" />
-                    </Border.StrokeShape>
-                    <Label Text="学" FontSize="24" FontAttributes="Bold" TextColor="#246BFF" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                    <Label Text="学" FontSize="24" FontAttributes="Bold" TextColor="#246BFF"
+                           HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
                 </Border>
-
                 <VerticalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center">
                     <Label Text="AI 学习直通车" FontSize="19" FontAttributes="Bold" TextColor="#10213A" LineBreakMode="NoWrap" />
                     <Label Text="FIVE GRADE · MATHEMATICS" FontSize="11" FontAttributes="Bold" TextColor="#91A1BA" />
                 </VerticalStackLayout>
-
-                <Button Grid.Column="5"
-                        Text="新会话"
-                        FontSize="13"
-                        FontAttributes="Bold"
-                        BackgroundColor="#FFFFFF"
-                        TextColor="#91A1BA"
-                        BorderColor="#E1E8F2"
-                        BorderWidth="1"
-                        CornerRadius="18"
-                        Padding="0"
+                <HorizontalStackLayout Grid.Column="5" Spacing="6" VerticalOptions="Center" HorizontalOptions="Center">
+                    <Label Text="思考" FontSize="11" TextColor="#64748B" VerticalTextAlignment="Center" />
+                    <Switch IsToggled="{Binding IsThinkingModeEnabled}" Scale="0.8" />
+                </HorizontalStackLayout>
+                <Button Grid.Column="6" Text="新会话" FontSize="13" FontAttributes="Bold"
+                        BackgroundColor="#FFFFFF" TextColor="#91A1BA"
+                        BorderColor="#E1E8F2" BorderWidth="1" CornerRadius="18" Padding="0"
                         Command="{Binding NewSessionCommand}" />
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Padding="26,0" BackgroundColor="#F7F9FC">
-            <CollectionView ItemsSource="{Binding Messages}"
-                            BackgroundColor="Transparent"
-                            SelectionMode="None">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
+        <!-- Messages area -->
+        <ScrollView x:Name="MessagesScroll" Grid.Row="1" Padding="26,0" BackgroundColor="#F7F9FC">
+            <VerticalStackLayout x:Name="MessagesStack"
+                                 BindableLayout.ItemsSource="{Binding Messages}"
+                                 Spacing="0">
+                <BindableLayout.ItemTemplate>
                     <DataTemplate>
-                        <controls:ChatBubbleView Margin="0,10,0,12"
-                                                 SpeakerText="{Binding SpeakerText}"
-                                                 MessageText="{Binding MessageText}"
-                                                 BubbleColor="{Binding BubbleColor}"
-                                                 MessageColor="{Binding MessageColor}"
-                                                 SpeakerColor="{Binding SpeakerColor}"
-                                                 BubbleHorizontalOptions="{Binding BubbleHorizontalOptions}" />
+                        <VerticalStackLayout Margin="0,10,0,12" Spacing="6"
+                                             MaximumWidthRequest="940"
+                                             HorizontalOptions="{Binding BubbleHorizontalOptions}">
+                            <Border Padding="28,20"
+                                    BackgroundColor="{Binding BubbleColor}"
+                                    Stroke="#E5EAF1" StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="26" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding MessageText}"
+                                       FontSize="17" LineHeight="1.36"
+                                       TextColor="{Binding MessageColor}"
+                                       LineBreakMode="WordWrap" />
+                            </Border>
+                            <Label Text="{Binding SpeakerText}"
+                                   FontSize="11" CharacterSpacing="1"
+                                   TextColor="{Binding SpeakerColor}" />
+                        </VerticalStackLayout>
                     </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </Grid>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </ScrollView>
 
+        <!-- Input area -->
         <Border Grid.Row="2" BackgroundColor="#FFFFFF" StrokeThickness="0">
             <Grid RowDefinitions="1,*" BackgroundColor="#FFFFFF">
                 <BoxView Grid.Row="0" HeightRequest="1" BackgroundColor="#EEF2F7" />
-
-                <Grid Grid.Row="1"
-                      Padding="18,18,44,12"
-                      ColumnDefinitions="48,10,48,18,1,22,*"
-                      ColumnSpacing="0"
+                <Grid Grid.Row="1" Padding="18,18,44,12"
+                      ColumnDefinitions="48,10,48,18,1,22,*" ColumnSpacing="0"
                       BackgroundColor="#FFFFFF">
-
-                    <Button Grid.Column="0"
-                            Text="📷"
-                            FontSize="19"
-                            WidthRequest="48"
-                            HeightRequest="48"
-                            BackgroundColor="#F4F7FB"
-                            TextColor="#91A1BA"
-                            CornerRadius="15"
-                            Padding="0"
-                            VerticalOptions="Start"
-                            Margin="0,10,0,0"
+                    <Button Grid.Column="0" Text="拍" FontSize="19"
+                            WidthRequest="48" HeightRequest="48"
+                            BackgroundColor="#F4F7FB" TextColor="#91A1BA"
+                            CornerRadius="15" Padding="0" VerticalOptions="Start" Margin="0,10,0,0"
                             Command="{Binding PhotoPlaceholderCommand}" />
-
-                    <Button Grid.Column="2"
-                            Text="🎙"
-                            FontSize="19"
-                            WidthRequest="48"
-                            HeightRequest="48"
-                            BackgroundColor="#F4F7FB"
-                            TextColor="#91A1BA"
-                            CornerRadius="15"
-                            Padding="0"
-                            VerticalOptions="Start"
-                            Margin="0,10,0,0"
+                    <Button Grid.Column="2" Text="语" FontSize="19"
+                            WidthRequest="48" HeightRequest="48"
+                            BackgroundColor="#F4F7FB" TextColor="#91A1BA"
+                            CornerRadius="15" Padding="0" VerticalOptions="Start" Margin="0,10,0,0"
                             Command="{Binding VoicePlaceholderCommand}" />
-
-                    <BoxView Grid.Column="4"
-                             WidthRequest="1"
-                             HeightRequest="44"
-                             BackgroundColor="#E8EEF7"
-                             VerticalOptions="Start"
-                             Margin="0,12,0,0" />
-
-                    <Border Grid.Column="6"
-                            HeightRequest="62"
-                            Padding="24,0,8,0"
-                            BackgroundColor="#F8FAFD"
-                            Stroke="#EEF2F8"
-                            StrokeThickness="1"
+                    <BoxView Grid.Column="4" WidthRequest="1" HeightRequest="44"
+                             BackgroundColor="#E8EEF7" VerticalOptions="Start" Margin="0,12,0,0" />
+                    <Border Grid.Column="6" HeightRequest="62" Padding="24,0,8,0"
+                            BackgroundColor="#F8FAFD" Stroke="#EEF2F8" StrokeThickness="1"
                             VerticalOptions="Start">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="24" />
-                        </Border.StrokeShape>
+                        <Border.StrokeShape><RoundRectangle CornerRadius="24" /></Border.StrokeShape>
                         <Border.Shadow>
                             <Shadow Brush="#000000" Offset="0,2" Radius="7" Opacity="0.05" />
                         </Border.Shadow>
-
                         <Grid ColumnDefinitions="*,50" ColumnSpacing="8">
                             <Entry Text="{Binding QuestionText}"
                                    Placeholder="输入你想学习的内容，老师带你深入浅出..."
-                                   FontSize="15"
-                                   TextColor="#334155"
-                                   PlaceholderColor="#9BA6B8"
-                                   BackgroundColor="Transparent"
-                                   HeightRequest="48"
-                                   VerticalOptions="Center"
-                                   ClearButtonVisibility="Never"
-                                   ReturnType="Send"
-                                   ReturnCommand="{Binding SubmitCommand}" />
-
-                            <Button Grid.Column="1"
-                                    Text="{Binding SendButtonText}"
-                                    FontSize="22"
-                                    WidthRequest="42"
-                                    HeightRequest="42"
-                                    BackgroundColor="#AFC6FF"
-                                    TextColor="#FFFFFF"
-                                    CornerRadius="15"
-                                    Padding="0"
-                                    HorizontalOptions="Center"
-                                    VerticalOptions="Center"
+                                   FontSize="15" TextColor="#334155" PlaceholderColor="#9BA6B8"
+                                   BackgroundColor="Transparent" HeightRequest="48"
+                                   VerticalOptions="Center" ClearButtonVisibility="Never"
+                                   ReturnType="Send" ReturnCommand="{Binding SubmitCommand}" />
+                            <Button Grid.Column="1" Text="{Binding SendButtonText}"
+                                    FontSize="22" WidthRequest="42" HeightRequest="42"
+                                    BackgroundColor="#AFC6FF" TextColor="#FFFFFF"
+                                    CornerRadius="15" Padding="0"
+                                    HorizontalOptions="Center" VerticalOptions="Center"
                                     Command="{Binding SubmitCommand}" />
                         </Grid>
                     </Border>
@@ -165,17 +118,11 @@
             </Grid>
         </Border>
 
-        <Border Grid.RowSpan="3"
-                Padding="14,7"
-                BackgroundColor="#2563EB"
-                HorizontalOptions="Center"
-                VerticalOptions="Start"
-                Margin="0,70,0,0"
-                IsVisible="{Binding HasToast}"
-                StrokeThickness="0">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="15" />
-            </Border.StrokeShape>
+        <!-- Toast -->
+        <Border Grid.RowSpan="3" Padding="14,7" BackgroundColor="#2563EB"
+                HorizontalOptions="Center" VerticalOptions="Start" Margin="0,70,0,0"
+                IsVisible="{Binding HasToast}" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
             <Label Text="{Binding ToastMessage}" TextColor="#FFFFFF" FontSize="14" />
         </Border>
     </Grid>

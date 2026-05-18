@@ -28,7 +28,7 @@ public class ChatAgent : IStreamingAgent
     /// <returns>完整 AgentResponse。</returns>
     public async Task<AgentResponse> ExecuteAsync(AgentRequest request, AgentRouteResult route, CancellationToken cancellationToken = default)
     {
-        var answer = await _modelProvider.GenerateAsync(BuildPrompt(request), cancellationToken);
+        var answer = await _modelProvider.GenerateAsync(BuildPrompt(request), request.EnableThinking, cancellationToken);
         return ResponseFactory.Create(route, answer, canAddToWrongBook: true);
     }
 

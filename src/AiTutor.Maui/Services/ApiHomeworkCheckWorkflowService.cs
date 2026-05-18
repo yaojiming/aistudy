@@ -13,17 +13,20 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
     private readonly IApiClientService _apiClientService;
     private readonly IAppSettingsService _settingsService;
     private readonly IImageCropService _imageCropService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<ApiHomeworkCheckWorkflowService> _logger;
 
     public ApiHomeworkCheckWorkflowService(
         IApiClientService apiClientService,
         IAppSettingsService settingsService,
         IImageCropService imageCropService,
+        ICurrentUserService currentUserService,
         ILogger<ApiHomeworkCheckWorkflowService> logger)
     {
         _apiClientService = apiClientService;
         _settingsService = settingsService;
         _imageCropService = imageCropService;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -35,6 +38,7 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
         IReadOnlyList<HomeworkQuestionRegion> questions,
         string? modelName = null,
         bool enableThinking = false,
+        byte[]? imageBytes = null,
         CancellationToken cancellationToken = default)
     {
         if (!File.Exists(imagePath))
@@ -45,17 +49,17 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
         _logger.LogInformation("Homework check started. ImagePath={ImagePath}", imagePath);
 
         var imageSize = await _imageCropService.GetImageSizeAsync(imagePath);
-        var imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
+        imageBytes ??= await File.ReadAllBytesAsync(imagePath, cancellationToken);
         var upload = await _apiClientService.UploadImageBytesAsync(
             imageBytes,
             $"homework-page-{DateTime.UtcNow:yyyyMMddHHmmss}.jpg",
             "homework_photo",
-            "test-user",
+            _currentUserService.UserId,
             cancellationToken);
 
         var response = await _apiClientService.AskAsync(new AgentRequest
         {
-            UserId = "test-user",
+            UserId = _currentUserService.UserId,
             Grade = _settingsService.GetCurrentGrade(),
             Subject = "数学",
             InputType = "image",

@@ -26,6 +26,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
     private bool _isThinkingModeEnabled;
     private string? _originalImagePath;
     private string? _correctedImagePath;
+    private byte[]? _cachedImageBytes;
     private ImageSource? _previewImage;
     private HomeworkQuestionItemViewModel? _selectedQuestion;
     private string? _selectedQuestionRegionId;
@@ -302,7 +303,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
             AiStatusText = "正在提交 AI 检查";
             LatestStatusMessage = "正在提交 AI 检查";
 
-            var results = await _checkWorkflowService.CheckAsync(_correctedImagePath, [], SelectedModelName, IsThinkingModeEnabled, cancellationToken);
+            var results = await _checkWorkflowService.CheckAsync(_correctedImagePath, [], SelectedModelName, IsThinkingModeEnabled, _cachedImageBytes, cancellationToken);
             await MainThread.InvokeOnMainThreadAsync(() => ApplyCheckResults(results));
         }
         catch (OperationCanceledException)
@@ -364,60 +365,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
             ReturnedResultCount);
     }
 
-    private void ApplyWorkflowUpdate(HomeworkCheckWorkflowUpdate update)
-    {
-        LatestStatusMessage = update.Message;
 
-        if (update.Kind == HomeworkCheckWorkflowUpdateKind.Status)
-        {
-            AiStatusText = update.Message;
-            return;
-        }
-
-        if (update.Kind == HomeworkCheckWorkflowUpdateKind.ResultReturned && update.Result is not null)
-        {
-            _logger.LogInformation(
-                "Homework check VM received result. QuestionNo={QuestionNo}, QuestionId={QuestionId}, ExistingQuestionCount={ExistingQuestionCount}",
-                update.Result.QuestionNo,
-                update.Result.QuestionId,
-                Questions.Count);
-
-            var question = Questions.FirstOrDefault(x => x.QuestionId == update.Result.QuestionId)
-                ?? Questions.FirstOrDefault(x => x.QuestionNo == update.Result.QuestionNo);
-
-            if (question is null)
-            {
-                question = new HomeworkQuestionItemViewModel(new HomeworkQuestionRegion(
-                    update.Result.QuestionId,
-                    update.Result.QuestionNo,
-                    update.Result.BBox,
-                    update.Result.QuestionText,
-                    update.Result.StudentAnswer,
-                    0.9));
-                Questions.Add(question);
-            }
-
-            question.ApplyResult(update.Result);
-            ReturnedResultCount = Questions.Count(x => x.Result is not null);
-            AiStatusText = "AI 已返回整页检查结果";
-            RebuildQuestionRegions();
-            _logger.LogInformation(
-                "Homework check VM applied result. QuestionNo={QuestionNo}, QuestionId={QuestionId}, QuestionCount={QuestionCount}, ReturnedResultCount={ReturnedResultCount}",
-                question.QuestionNo,
-                question.QuestionId,
-                Questions.Count,
-                ReturnedResultCount);
-            return;
-        }
-
-        if (update.Kind == HomeworkCheckWorkflowUpdateKind.Completed)
-        {
-            AiStatusText = "检查完成";
-            _logger.LogInformation("Homework check completed. QuestionCount={QuestionCount}, ReturnedResultCount={ReturnedResultCount}", Questions.Count, ReturnedResultCount);
-            HasCheckResult = true;
-            ClearSelection();
-        }
-    }
 
     private Task SelectQuestionAsync(string? questionId)
     {
@@ -499,8 +447,8 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
         ImagePixelWidth = size.Width;
         ImagePixelHeight = size.Height;
 
-        var bytes = await File.ReadAllBytesAsync(imagePath);
-        PreviewImage = ImageSource.FromStream(() => new MemoryStream(bytes));
+        _cachedImageBytes = await File.ReadAllBytesAsync(imagePath);
+        PreviewImage = ImageSource.FromStream(() => new MemoryStream(_cachedImageBytes));
     }
 
     private void ResetPageState()
@@ -508,6 +456,7 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
         ErrorMessage = null;
         _originalImagePath = null;
         _correctedImagePath = null;
+        _cachedImageBytes = null;
         PreviewImage = null;
         ImagePixelWidth = 0;
         ImagePixelHeight = 0;
@@ -526,17 +475,6 @@ public sealed class HomeworkCheckViewModel : ViewModelBase
         QuestionRegions.Clear();
         ClearSelection();
         OnPropertyChanged(nameof(QuestionRegions));
-    }
-
-    private void ResetResults()
-    {
-        foreach (var question in Questions)
-        {
-            question.ClearResult();
-            question.Status = HomeworkQuestionStatus.Pending;
-        }
-
-        RebuildQuestionRegions();
     }
 
     private void ClearSelection()

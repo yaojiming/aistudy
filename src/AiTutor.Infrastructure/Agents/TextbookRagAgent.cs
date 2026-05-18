@@ -55,7 +55,7 @@ public class TextbookRagAgent : IAgent
             ["textbook_context"] = textbookContext
         });
 
-        var answer = await _modelProvider.GenerateAsync(prompt, cancellationToken);
+        var answer = await _modelProvider.GenerateAsync(prompt, request.EnableThinking, cancellationToken);
         var response = ResponseFactory.Create(route, answer, canAddToWrongBook: true);
         response.TextbookReferences.AddRange(references);
         response.Suggestions.Add(new SuggestionDto { Text = "查看教材例题", Action = "open_textbook_reference" });

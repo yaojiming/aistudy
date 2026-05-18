@@ -12,5 +12,6 @@ public interface IHomeworkCheckWorkflowService
         IReadOnlyList<HomeworkQuestionRegion> questions,
         string? modelName = null,
         bool enableThinking = false,
+        byte[]? imageBytes = null,
         CancellationToken cancellationToken = default);
 }

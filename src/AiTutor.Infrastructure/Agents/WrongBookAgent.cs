@@ -62,7 +62,7 @@ public class WrongBookAgent : IAgent
             ["explanation"] = wrongQuestion?.Explanation ?? string.Empty
         });
 
-        var answer = await _modelProvider.GenerateAsync(prompt, cancellationToken);
+        var answer = await _modelProvider.GenerateAsync(prompt, request.EnableThinking, cancellationToken);
         var response = ResponseFactory.Create(route, answer, canAddToWrongBook: false);
         response.Suggestions.Add(new SuggestionDto { Text = "生成同类练习", Action = "practice_generate" });
         response.Suggestions.Add(new SuggestionDto { Text = "稍后再复习", Action = "schedule_review" });

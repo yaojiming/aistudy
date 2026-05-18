@@ -9,6 +9,7 @@ namespace AiTutor.Maui.ViewModels;
 public class ChatViewModel : ViewModelBase
 {
     private readonly IApiClientService _apiClientService;
+    private readonly ICurrentUserService _currentUserService;
     private string? _selectedGrade = "五年级";
     private string? _selectedSubject = "数学";
     private bool _isThinkingModeEnabled;
@@ -19,9 +20,10 @@ public class ChatViewModel : ViewModelBase
     private CancellationTokenSource? _sendCancellationTokenSource;
     private readonly List<ConversationTurn> _conversationTurns = [];
 
-    public ChatViewModel(IApiClientService apiClientService, IAppSettingsService settingsService)
+    public ChatViewModel(IApiClientService apiClientService, IAppSettingsService settingsService, ICurrentUserService currentUserService)
     {
         _apiClientService = apiClientService;
+        _currentUserService = currentUserService;
         _selectedGrade = settingsService.GetCurrentGrade();
         Messages =
         [
@@ -136,7 +138,7 @@ public class ChatViewModel : ViewModelBase
         {
             var finalResponse = await Task.Run(() => _apiClientService.AskStreamAsync(new AgentRequest
             {
-                UserId = "test-user",
+                UserId = _currentUserService.UserId,
                 SessionId = _sessionId,
                 Grade = SelectedGrade,
                 Subject = SelectedSubject,
@@ -342,7 +344,6 @@ public class ChatMessageViewModel : ViewModelBase
     {
         _messageText += delta;
         OnPropertyChanged(nameof(MessageText));
-        OnPropertyChanged(nameof(RawMessageText));
     }
 }
 

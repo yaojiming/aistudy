@@ -1,0 +1,68 @@
+<UserControl x:Class="AiTutor.Wpf.Views.WrongBookView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="错题本" FontSize="34" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,18" />
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource PanelBorder}" Margin="0,0,18,0">
+                <StackPanel>
+                    <TextBlock Text="筛选" FontSize="24" FontWeight="Bold" Foreground="#0F172A" />
+                    <ComboBox FontSize="18" Margin="0,18,0,12" SelectedIndex="0">
+                        <ComboBoxItem Content="全部学科" />
+                        <ComboBoxItem Content="数学" />
+                        <ComboBoxItem Content="语文" />
+                        <ComboBoxItem Content="英语" />
+                    </ComboBox>
+                    <ComboBox FontSize="18" SelectedIndex="0">
+                        <ComboBoxItem Content="全部状态" />
+                        <ComboBoxItem Content="待复习" />
+                        <ComboBoxItem Content="已掌握" />
+                    </ComboBox>
+                    <TextBlock Text="WPF 版本当前使用本地 Mock 数据，后续可接入后端错题接口。" TextWrapping="Wrap" Foreground="#64748B" FontSize="16" Margin="0,24,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.55*" />
+                    <ColumnDefinition Width="0.45*" />
+                </Grid.ColumnDefinitions>
+                <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,18,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="22" FontWeight="Bold" Foreground="#0F172A" />
+                                    <TextBlock Text="{Binding KnowledgePoint}" FontSize="16" Foreground="#2563EB" Margin="0,8,0,0" />
+                                    <TextBlock Text="{Binding Reason}" FontSize="16" Foreground="#64748B" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    <TextBlock Text="{Binding NextReviewTime, StringFormat=下次复习：{0}}" FontSize="14" Foreground="#94A3B8" Margin="0,10,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Column="1" Style="{StaticResource PanelBorder}" DataContext="{Binding SelectedItem}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Title}" FontSize="26" FontWeight="Bold" Foreground="#0F172A" />
+                        <TextBlock Text="{Binding Subject, StringFormat=学科：{0}}" FontSize="18" Foreground="#475569" Margin="0,16,0,0" />
+                        <TextBlock Text="{Binding KnowledgePoint, StringFormat=知识点：{0}}" FontSize="18" Foreground="#475569" Margin="0,8,0,0" />
+                        <TextBlock Text="{Binding Reason, StringFormat=错误原因：{0}}" FontSize="18" Foreground="#B45309" TextWrapping="Wrap" Margin="0,16,0,0" />
+                        <Button Content="重新做" IsEnabled="False" Style="{StaticResource PrimaryButton}" Margin="0,28,0,12" />
+                        <Button Content="看讲解" IsEnabled="False" Style="{StaticResource SoftButton}" Margin="0,0,0,12" />
+                        <Button Content="生成同类题" IsEnabled="False" Style="{StaticResource SoftButton}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

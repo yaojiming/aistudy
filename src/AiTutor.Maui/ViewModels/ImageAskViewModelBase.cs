@@ -16,6 +16,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
 {
     private readonly IApiClientService _apiClientService;
     private readonly ITabletMediaPickerService _mediaPickerService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IOcrService? _ocrService;
     private readonly IQuestionRegionBuilder? _questionRegionBuilder;
     private readonly IImageCropService? _imageCropService;
@@ -42,10 +43,12 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     private readonly object _answerBuilderLock = new();
     private bool _uiFlushScheduled;
     private bool _isStreamingAnswer;
+    private CancellationTokenSource? _flushCts;
 
     protected ImageAskViewModelBase(
         IApiClientService apiClientService,
         ITabletMediaPickerService mediaPickerService,
+        ICurrentUserService currentUserService,
         IAppSettingsService? settingsService = null,
         IOcrService? ocrService = null,
         IQuestionRegionBuilder? questionRegionBuilder = null,
@@ -54,6 +57,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     {
         _apiClientService = apiClientService;
         _mediaPickerService = mediaPickerService;
+        _currentUserService = currentUserService;
         _settingsService = settingsService;
         _selectedGrade = _settingsService?.GetCurrentGrade() ?? _selectedGrade;
         _ocrService = ocrService;
@@ -223,7 +227,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
             ResultText = "正在准备题目图片...";
             var upload = EnableQuestionRegionSelection
                 ? await UploadSelectedQuestionImageAsync()
-                : await _apiClientService.UploadImageAsync(_selectedFile, ResourceType, "test-user");
+                : await _apiClientService.UploadImageAsync(_selectedFile, ResourceType, _currentUserService.UserId);
 
             UploadProgress = 0.65;
             ResultText = "AI老师正在读题...\n\n";
@@ -236,7 +240,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
 
             var request = new AgentRequest
             {
-                UserId = "test-user",
+                UserId = _currentUserService.UserId,
                 Grade = SelectedGrade,
                 Subject = SelectedSubject,
                 InputType = "image",
@@ -457,7 +461,7 @@ public abstract class ImageAskViewModelBase : ViewModelBase
             jpegBytes,
             $"question-crop-{DateTime.UtcNow:yyyyMMddHHmmss}.jpg",
             ResourceType,
-            "test-user");
+            _currentUserService.UserId);
     }
 
     private void ResetImageAnalysisState()
@@ -504,6 +508,8 @@ public abstract class ImageAskViewModelBase : ViewModelBase
     /// </summary>
     private void ResetAnswerBuffer()
     {
+        CancelPendingFlush();
+
         lock (_answerBuilderLock)
         {
             _answerBuilder.Clear();
@@ -511,6 +517,13 @@ public abstract class ImageAskViewModelBase : ViewModelBase
 
         _answerStreamText = string.Empty;
         _uiFlushScheduled = false;
+    }
+
+    private void CancelPendingFlush()
+    {
+        _flushCts?.Cancel();
+        _flushCts?.Dispose();
+        _flushCts = null;
     }
 
     /// <summary>
@@ -528,10 +541,21 @@ public abstract class ImageAskViewModelBase : ViewModelBase
             _uiFlushScheduled = true;
         }
 
+        CancelPendingFlush();
+        _flushCts = new CancellationTokenSource();
+        var token = _flushCts.Token;
+
         _ = MainThread.InvokeOnMainThreadAsync(async () =>
         {
-            await Task.Delay(40);
-            FlushAnswerToUi();
+            try
+            {
+                await Task.Delay(40, token);
+                FlushAnswerToUi();
+            }
+            catch (OperationCanceledException)
+            {
+                // Flush was cancelled — ViewModel is no longer active.
+            }
         });
     }
 
