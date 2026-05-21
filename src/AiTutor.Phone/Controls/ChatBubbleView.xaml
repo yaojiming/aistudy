@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Name="Root"
+             x:Class="AiTutor.Maui.Controls.ChatBubbleView">
+    <VerticalStackLayout Spacing="12"
+                         HorizontalOptions="{Binding BubbleHorizontalOptions, Source={x:Reference Root}}"
+                         MaximumWidthRequest="940">
+        <Border Padding="28,20"
+                BackgroundColor="{Binding BubbleColor, Source={x:Reference Root}}"
+                Stroke="#E5EAF1"
+                StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="26" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#D7DEE8" Offset="0,6" Radius="12" Opacity="0.5" />
+            </Border.Shadow>
+            <Label x:Name="MessageLabel"
+                   Text="{Binding MessageText, Source={x:Reference Root}}"
+                   FontSize="18"
+                   LineHeight="1.32"
+                   TextColor="{Binding MessageColor, Source={x:Reference Root}}" />
+        </Border>
+        <Label Text="{Binding SpeakerText, Source={x:Reference Root}}"
+               FontSize="11"
+               CharacterSpacing="1"
+               TextColor="{Binding SpeakerColor, Source={x:Reference Root}}" />
+    </VerticalStackLayout>
+</ContentView>

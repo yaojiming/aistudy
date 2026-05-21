@@ -156,9 +156,15 @@ public class GlmVisionModelProvider : IVisionModelProvider
         string? modelName = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey) || string.IsNullOrWhiteSpace(imageUrl))
+        if (ProviderHttpHelper.IsMissingOrPlaceholder(_options.Zhipu.ApiKey))
         {
-            yield return "GLM 视觉模型流式请求失败。状态码：" + (int)response.StatusCode + "。请稍后再试。";
+            yield return "GLM 视觉模型还没有配置 API Key。请在后端开发配置中填写 Zhipu 密钥，或保持 UseMock=true 继续测试。";
+            yield break;
+        }
+
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            yield return "没有收到图片地址，所以暂时不能进行图片讲题。请重新上传图片后再试。";
             yield break;
         }
 
@@ -313,6 +319,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
                     if (!hasStartedReasoningSection)
                     {
                         hasStartedReasoningSection = true;
+                        _logger.LogInformation("GLM vision stream reasoning started. Model={Model}, EnableThinking={EnableThinking}", requestModelName, enableThinking);
                         yield return "\n\n【思路分析】\n";
                     }
 
@@ -323,6 +330,7 @@ public class GlmVisionModelProvider : IVisionModelProvider
                 if (!hasStartedContentSection)
                 {
                     hasStartedContentSection = true;
+                    _logger.LogInformation("GLM vision stream content started. Model={Model}, HasReasoning={HasReasoning}", requestModelName, hasStartedReasoningSection);
                     if (hasStartedReasoningSection)
                     {
                         yield return "\n\n【正式讲解】\n";
@@ -428,25 +436,37 @@ public class GlmVisionModelProvider : IVisionModelProvider
         {
             using var document = JsonDocument.Parse(json);
             var choice = document.RootElement.GetProperty("choices")[0];
+
             if (choice.TryGetProperty("delta", out var delta) &&
+                (delta.TryGetProperty("reasoning_content", out var reasoning) ||
+                 delta.TryGetProperty("reasoning", out reasoning) ||
+                 delta.TryGetProperty("thought", out reasoning)))
+            {
+                var reasoningText = ReadContentElement(reasoning);
+                if (!string.IsNullOrWhiteSpace(reasoningText))
+                {
+                    return new ModelDelta(ModelDeltaKind.Reasoning, reasoningText);
+                }
+            }
+
+            if (choice.TryGetProperty("delta", out delta) &&
                 delta.TryGetProperty("content", out var content))
             {
-                return new ModelDelta(ModelDeltaKind.Content, ReadContentElement(content));
+                var contentText = ReadContentElement(content);
+                if (!string.IsNullOrEmpty(contentText))
+                {
+                    return new ModelDelta(ModelDeltaKind.Content, contentText);
+                }
             }
 
             if (choice.TryGetProperty("message", out var message) &&
                 message.TryGetProperty("content", out content))
             {
-                return new ModelDelta(ModelDeltaKind.Content, ReadContentElement(content));
-            }
-
-            if (choice.TryGetProperty("delta", out delta) &&
-                (delta.TryGetProperty("reasoning_content", out var reasoning) ||
-                 delta.TryGetProperty("reasoning", out reasoning) ||
-                 delta.TryGetProperty("thought", out reasoning)) &&
-                !string.IsNullOrWhiteSpace(reasoning.GetString()))
-            {
-                return new ModelDelta(ModelDeltaKind.Reasoning, reasoning.GetString());
+                var contentText = ReadContentElement(content);
+                if (!string.IsNullOrEmpty(contentText))
+                {
+                    return new ModelDelta(ModelDeltaKind.Content, contentText);
+                }
             }
         }
         catch
@@ -506,14 +526,6 @@ public class GlmVisionModelProvider : IVisionModelProvider
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         return timeoutCts;
-    }
-
-            {
-                return delay > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : delay;
-            }
-        }
-
-        return TimeSpan.FromSeconds(attempt * 5);
     }
 
     /// <summary>

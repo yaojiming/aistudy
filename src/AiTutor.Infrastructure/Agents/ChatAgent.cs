@@ -67,12 +67,12 @@ public class ChatAgent : IStreamingAgent
     {
         var templateCode = string.Equals(request.Subject, "数学", StringComparison.OrdinalIgnoreCase) ||
                            string.Equals(request.Subject, "鏁板", StringComparison.OrdinalIgnoreCase)
-            ? "math_problem_explain"
+            ? "chat_text_explain"
             : "chat_text_explain";
 
         return _promptTemplateService.Render(templateCode, new Dictionary<string, string?>
         {
-            ["subject"] = request.Subject ?? "学习",
+            ["subject"] = "学习",
             ["grade"] = request.Grade ?? "小学",
             ["question"] = request.QuestionText,
             ["conversation_context"] = request.ConversationContext,

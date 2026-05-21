@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
+             x:Class="AiTutor.Maui.Views.HomeworkCheckPage"
+             Shell.NavBarIsVisible="False"
+             Title="检查作业"
+             BackgroundColor="#F8FAFC">
+
+    <Grid RowDefinitions="68,48,*,78" BackgroundColor="#F8FAFC">
+        <Grid Padding="14,9"
+              ColumnDefinitions="44,48,*"
+              ColumnSpacing="10"
+              BackgroundColor="#FFFFFF">
+            <Button Text="‹"
+                    FontSize="30"
+                    FontAttributes="Bold"
+                    BackgroundColor="#F5F8FC"
+                    TextColor="#2A405C"
+                    CornerRadius="16"
+                    Padding="0"
+                    Command="{Binding BackCommand}" />
+            <Border Grid.Column="1" BackgroundColor="#DCEBFF" StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="14" />
+                </Border.StrokeShape>
+                <Label Text="检"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="#246BFF"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center" />
+            </Border>
+            <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                <Label Text="检查作业"
+                       FontSize="21"
+                       FontAttributes="Bold"
+                       TextColor="#1E293B" />
+                <Label Text="{Binding LatestStatusMessage}"
+                       FontSize="11"
+                       TextColor="#94A3B8"
+                       LineBreakMode="TailTruncation" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid Grid.Row="1"
+              Padding="10,6"
+              ColumnDefinitions="0.72*,0.72*,*,Auto"
+              ColumnSpacing="8"
+              BackgroundColor="#F8FAFC">
+            <Picker ItemsSource="{Binding Grades}"
+                    SelectedItem="{Binding SelectedGrade}"
+                    FontSize="13"
+                    IsEnabled="{Binding CanUseInputControls}"
+                    BackgroundColor="#FFFFFF" />
+            <Picker Grid.Column="1"
+                    ItemsSource="{Binding Subjects}"
+                    SelectedItem="{Binding SelectedSubject}"
+                    FontSize="13"
+                    IsEnabled="{Binding CanUseInputControls}"
+                    BackgroundColor="#FFFFFF" />
+            <Picker Grid.Column="2"
+                    ItemsSource="{Binding ModelNames}"
+                    SelectedItem="{Binding SelectedModelName}"
+                    FontSize="13"
+                    IsEnabled="{Binding CanUseInputControls}"
+                    BackgroundColor="#FFFFFF" />
+            <HorizontalStackLayout Grid.Column="3" Spacing="2" VerticalOptions="Center">
+                <Label Text="思考" FontSize="12" TextColor="#334155" VerticalTextAlignment="Center" />
+                <Switch IsToggled="{Binding IsThinkingModeEnabled}"
+                        IsEnabled="{Binding CanUseInputControls}"
+                        Scale="0.72" />
+            </HorizontalStackLayout>
+        </Grid>
+
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout Padding="14,10,14,14" Spacing="12">
+                <Border Padding="16,8"
+                        BackgroundColor="#FFFFFF"
+                        Stroke="#E2E8F0"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="20" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="1. 选择或拍摄整页作业图片"
+                               FontSize="12"
+                               TextColor="#475569" />
+                        <Label Text="2. 点击开始检查，整张图片会一次性发送给 AI"
+                               FontSize="12"
+                               TextColor="#475569" />
+                        <Label Text="3. 检查完成后进入结果页，可查看图片标注和逐题结果"
+                               FontSize="12"
+                               TextColor="#475569" />
+                        <Label Text="{Binding ClientStageText}"
+                               Margin="0,6,0,0"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#2563EB" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border HeightRequest="550"
+                        Padding="0"
+                        BackgroundColor="#111827"
+                        Stroke="#334155"
+                        StrokeThickness="2">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="24" />
+                    </Border.StrokeShape>
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Aspect="AspectFit" />
+                        <controls:EmptyStateView TitleText="选择一张作业图片"
+                                                 DescriptionText="先选择或拍摄整页作业，确认清晰后再发送给 AI 检查。"
+                                                 IconText="检"
+                                                 IsVisible="{Binding HasPreview, Converter={StaticResource InvertedBoolConverter}}" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="3"
+              Padding="12,10"
+              ColumnDefinitions="*,*,*"
+              ColumnSpacing="8"
+              BackgroundColor="#FFFFFF">
+            <Button Text="选择图片"
+                    HeightRequest="54"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#2563EB"
+                    TextColor="#FFFFFF"
+                    IsEnabled="{Binding CanUseInputControls}"
+                    Command="{Binding PickImageCommand}" />
+            <Button Grid.Column="1"
+                    Text="拍照"
+                    HeightRequest="54"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F766E"
+                    TextColor="#FFFFFF"
+                    IsEnabled="{Binding CanUseInputControls}"
+                    Command="{Binding CapturePhotoCommand}" />
+            <Button Grid.Column="2"
+                    Text="{Binding StartCheckButtonText}"
+                    HeightRequest="54"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F172A"
+                    TextColor="#FFFFFF"
+                    IsEnabled="{Binding CanStartCheck}"
+                    Command="{Binding StartCheckCommand}" />
+        </Grid>
+
+        <controls:LoadingOverlay Grid.RowSpan="4"
+                                 IsLoading="{Binding IsBlockingLoading}"
+                                 LoadingText="AI 正在检查作业，请稍等..." />
+    </Grid>
+</ContentPage>

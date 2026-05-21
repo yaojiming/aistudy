@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
+             x:Class="AiTutor.Maui.Views.PhotoQuestionPage"
+             Shell.NavBarIsVisible="False"
+             Title="拍照讲题"
+             BackgroundColor="#F8FAFC">
+
+    <Grid RowDefinitions="68,48,220,*,74" BackgroundColor="#F8FAFC">
+        <Grid Padding="14,9"
+              ColumnDefinitions="44,48,*,Auto"
+              ColumnSpacing="10"
+              BackgroundColor="#FFFFFF">
+            <Button Text="‹"
+                    FontSize="30"
+                    FontAttributes="Bold"
+                    BackgroundColor="#F5F8FC"
+                    TextColor="#2A405C"
+                    CornerRadius="16"
+                    Padding="0"
+                    Command="{Binding BackCommand}" />
+            <Border Grid.Column="1" BackgroundColor="#DCEBFF" StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="14" />
+                </Border.StrokeShape>
+                <Label Text="学"
+                       FontSize="25"
+                       FontAttributes="Bold"
+                       TextColor="#246BFF"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center" />
+            </Border>
+            <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                <Label Text="拍照讲题"
+                       FontSize="21"
+                       FontAttributes="Bold"
+                       TextColor="#1E293B" />
+                <Label Text="选题后上传，AI 分步骤讲解"
+                       FontSize="11"
+                       TextColor="#94A3B8" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid Grid.Row="1"
+              Padding="10,6"
+              ColumnDefinitions="0.72*,0.72*,*,Auto"
+              ColumnSpacing="8"
+              BackgroundColor="#F8FAFC">
+            <Picker ItemsSource="{Binding Grades}"
+                    SelectedItem="{Binding SelectedGrade}"
+                    FontSize="13"
+                    BackgroundColor="#FFFFFF" />
+            <Picker Grid.Column="1"
+                    ItemsSource="{Binding Subjects}"
+                    SelectedItem="{Binding SelectedSubject}"
+                    FontSize="13"
+                    BackgroundColor="#FFFFFF" />
+            <Picker Grid.Column="2"
+                    ItemsSource="{Binding ModelNames}"
+                    SelectedItem="{Binding SelectedModelName}"
+                    FontSize="13"
+                    BackgroundColor="#FFFFFF" />
+            <HorizontalStackLayout Grid.Column="3" Spacing="2" VerticalOptions="Center">
+                <Label Text="思考" FontSize="12" TextColor="#334155" VerticalTextAlignment="Center" />
+                <Switch IsToggled="{Binding IsThinkingModeEnabled}" Scale="0.72" />
+            </HorizontalStackLayout>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Margin="12,4,12,8"
+                Padding="8"
+                BackgroundColor="#111827"
+                Stroke="#334155"
+                StrokeThickness="2">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="22" />
+            </Border.StrokeShape>
+            <Grid>
+                <Image Source="{Binding PreviewImage}" Aspect="AspectFit" />
+                <controls:QuestionRegionOverlayView Regions="{Binding QuestionRegions}"
+                                                    SelectedRegionId="{Binding SelectedQuestionRegionId}"
+                                                    ImagePixelWidth="{Binding ImagePixelWidth}"
+                                                    ImagePixelHeight="{Binding ImagePixelHeight}"
+                                                    RegionTappedCommand="{Binding SelectQuestionRegionCommand}" />
+                <controls:EmptyStateView TitleText="请拍摄或选择题目照片"
+                                         DescriptionText="图片会显示在这里"
+                                         IconText="拍"
+                                         IsVisible="{Binding HasPreview, Converter={StaticResource InvertedBoolConverter}}" />
+                <Border Padding="8,5"
+                        Margin="8"
+                        BackgroundColor="#CC0F172A"
+                        StrokeThickness="0"
+                        IsVisible="{Binding HasRegionHint}"
+                        VerticalOptions="End">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="10" />
+                    </Border.StrokeShape>
+                    <Label Text="{Binding RegionHintText}"
+                           FontSize="11"
+                           TextColor="#FFFFFF"
+                           LineBreakMode="WordWrap" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Padding="12,0,12,8" RowDefinitions="6,*" RowSpacing="8">
+            <ProgressBar Progress="{Binding UploadProgress}"
+                         ProgressColor="#0F766E"
+                         BackgroundColor="#E2E8F0"
+                         HeightRequest="6" />
+            <Border Grid.Row="1"
+                    Padding="14"
+                    BackgroundColor="#EFF6FF"
+                    Stroke="#DBEAFE"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20" />
+                </Border.StrokeShape>
+                <controls:FormattedAnswerView Text="{Binding ResultText}"
+                                              IsStreaming="{Binding IsStreamingAnswer}"
+                                              AnswerFontSize="15"
+                                              AnswerTextColor="#334155" />
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="4"
+              Padding="12,10"
+              ColumnDefinitions="*,*,*"
+              ColumnSpacing="8"
+              BackgroundColor="#FFFFFF">
+            <Button Text="选择图片"
+                    HeightRequest="52"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#2563EB"
+                    TextColor="#FFFFFF"
+                    Command="{Binding PickImageCommand}" />
+            <Button Grid.Column="1"
+                    Text="拍照"
+                    HeightRequest="52"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F766E"
+                    TextColor="#FFFFFF"
+                    Command="{Binding CapturePhotoCommand}" />
+            <Button Grid.Column="2"
+                    Text="讲解"
+                    HeightRequest="52"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F172A"
+                    TextColor="#FFFFFF"
+                    Command="{Binding SubmitCommand}" />
+        </Grid>
+
+        <controls:LoadingOverlay Grid.RowSpan="5"
+                                 IsLoading="{Binding IsBlockingLoading}"
+                                 LoadingText="AI老师正在看图..." />
+    </Grid>
+</ContentPage>

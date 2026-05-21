@@ -139,8 +139,18 @@ public class DeepSeekTextModelProvider : ITextModelProvider
             yield break;
         }
 
+        _logger.LogInformation(
+            "DeepSeek stream response headers received. Model={Model}, EnableThinking={EnableThinking}",
+            ModelName,
+            enableThinking);
+
         await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
         using var reader = new StreamReader(stream, Encoding.UTF8);
+        var hasStartedReasoningSection = false;
+        var hasStartedContentSection = false;
+        var hasAnyDelta = false;
+        var ignoredReasoningDeltaCount = 0;
+        var emptyDeltaCount = 0;
         while (!reader.EndOfStream)
         {
             var line = await reader.ReadLineAsync(timeoutCts.Token);
@@ -156,10 +166,61 @@ public class DeepSeekTextModelProvider : ITextModelProvider
             }
 
             var delta = ReadDeltaContent(data);
-            if (!string.IsNullOrEmpty(delta))
+            if (string.IsNullOrEmpty(delta.Text))
             {
-                yield return delta;
+                emptyDeltaCount++;
+                continue;
             }
+
+            if (delta.Kind == TextDeltaKind.Reasoning)
+            {
+                if (!enableThinking)
+                {
+                    ignoredReasoningDeltaCount++;
+                    continue;
+                }
+
+                if (!hasStartedReasoningSection)
+                {
+                    hasStartedReasoningSection = true;
+                    _logger.LogInformation("DeepSeek stream reasoning started. Model={Model}, EnableThinking={EnableThinking}", ModelName, enableThinking);
+                    yield return "\n\n【思路分析】\n";
+                }
+
+                hasAnyDelta = true;
+                yield return delta.Text;
+                continue;
+            }
+
+            if (!hasStartedContentSection)
+            {
+                hasStartedContentSection = true;
+                _logger.LogInformation("DeepSeek stream content started. Model={Model}, HasReasoning={HasReasoning}", ModelName, hasStartedReasoningSection);
+                if (hasStartedReasoningSection)
+                {
+                    yield return "\n\n【正式讲解】\n";
+                }
+            }
+
+            hasAnyDelta = true;
+            yield return delta.Text;
+        }
+
+        _logger.LogInformation(
+            "DeepSeek stream ended. Model={Model}, HasAnyDelta={HasAnyDelta}, HasContent={HasContent}, IgnoredReasoningDeltaCount={IgnoredReasoningDeltaCount}, EmptyDeltaCount={EmptyDeltaCount}",
+            ModelName,
+            hasAnyDelta,
+            hasStartedContentSection,
+            ignoredReasoningDeltaCount,
+            emptyDeltaCount);
+
+        if (!hasAnyDelta)
+        {
+            _logger.LogWarning(
+                "DeepSeek stream produced no displayable delta. Falling back to non-stream response. Model={Model}, EnableThinking={EnableThinking}",
+                ModelName,
+                enableThinking);
+            yield return await GenerateAsync(prompt, enableThinking, cancellationToken);
         }
     }
 
@@ -178,24 +239,54 @@ public class DeepSeekTextModelProvider : ITextModelProvider
     /// <summary>
     /// 从 OpenAI 兼容流式 JSON 中读取 choices[0].delta.content。
     /// </summary>
-    private static string? ReadDeltaContent(string json)
+    private static TextDelta ReadDeltaContent(string json)
     {
         try
         {
             using var document = JsonDocument.Parse(json);
             var choice = document.RootElement.GetProperty("choices")[0];
+
             if (choice.TryGetProperty("delta", out var delta) &&
-                delta.TryGetProperty("content", out var content))
+                (delta.TryGetProperty("reasoning_content", out var reasoning) ||
+                 delta.TryGetProperty("reasoning", out reasoning) ||
+                 delta.TryGetProperty("thought", out reasoning)) &&
+                reasoning.ValueKind == JsonValueKind.String)
             {
-                return content.GetString();
+                var reasoningText = reasoning.GetString();
+                if (!string.IsNullOrWhiteSpace(reasoningText))
+                {
+                    return new TextDelta(TextDeltaKind.Reasoning, reasoningText);
+                }
+            }
+
+            if (choice.TryGetProperty("delta", out delta) &&
+                delta.TryGetProperty("content", out var content) &&
+                content.ValueKind == JsonValueKind.String)
+            {
+                var contentText = content.GetString();
+                if (!string.IsNullOrEmpty(contentText))
+                {
+                    return new TextDelta(TextDeltaKind.Content, contentText);
+                }
             }
         }
         catch
         {
-            return null;
+            return TextDelta.Empty;
         }
 
-        return null;
+        return TextDelta.Empty;
+    }
+
+    private enum TextDeltaKind
+    {
+        Content,
+        Reasoning
+    }
+
+    private readonly record struct TextDelta(TextDeltaKind Kind, string? Text)
+    {
+        public static TextDelta Empty { get; } = new(TextDeltaKind.Content, null);
     }
 
     /// <summary>

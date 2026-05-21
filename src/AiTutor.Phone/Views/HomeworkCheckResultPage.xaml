@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
+             x:Class="AiTutor.Maui.Views.HomeworkCheckResultPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             Title="检查结果"
+             BackgroundColor="#F8FAFC">
+
+    <Grid RowDefinitions="122,*,78" BackgroundColor="#F8FAFC">
+        <Grid Padding="14,9"
+              RowDefinitions="52,44"
+              ColumnDefinitions="44,48,*"
+              ColumnSpacing="10"
+              RowSpacing="8"
+              BackgroundColor="#FFFFFF">
+            <Button Text="‹"
+                    FontSize="30"
+                    FontAttributes="Bold"
+                    BackgroundColor="#F5F8FC"
+                    TextColor="#2A405C"
+                    CornerRadius="16"
+                    Padding="0"
+                    Command="{Binding BackToInputCommand}" />
+            <Border Grid.Column="1" BackgroundColor="#DCEBFF" StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="14" />
+                </Border.StrokeShape>
+                <Label Text="检"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="#246BFF"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center" />
+            </Border>
+            <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                <Label Text="检查结果"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="#1E293B"
+                       LineBreakMode="NoWrap" />
+                <Label Text="{Binding LatestStatusMessage}"
+                       FontSize="11"
+                       TextColor="#94A3B8"
+                       LineBreakMode="TailTruncation" />
+            </VerticalStackLayout>
+
+            <Grid Grid.Row="1"
+                  Grid.ColumnSpan="3"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12"
+                  Padding="0,0,2,0">
+                <Button Text="查看图片"
+                        Margin="5,10,0,0"
+                        HorizontalOptions="Start"
+                        HeightRequest="40"
+                        Padding="18,0"
+                        CornerRadius="15"
+                        FontSize="14"
+                        FontAttributes="Bold"
+                        BackgroundColor="#EEF6FF"
+                        TextColor="#2563EB"
+                        Command="{Binding OpenHomeworkImageCommand}" />
+                <Label Grid.Column="1"
+                       Margin="5,10,0,0"
+                       Text="{Binding ReturnedResultText}"
+                       FontSize="14"
+                       TextColor="#2563EB"
+                       VerticalTextAlignment="Center" />
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="1"
+                Margin="12,10,12,8"
+                Padding="12"
+                BackgroundColor="#FFFFFF"
+                Stroke="#E2E8F0"
+                StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="20" />
+            </Border.StrokeShape>
+            <Grid>
+                <VerticalStackLayout IsVisible="{Binding ShowCheckingPanel}" Spacing="8">
+                    <Label Text="AI 正在检查整页作业"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="#1E293B" />
+                    <Label Text="{Binding ClientStageText}" FontSize="15" FontAttributes="Bold" TextColor="#1E293B" />
+                    <Label Text="{Binding LatestStatusMessage}" FontSize="14" TextColor="#475569" />
+                    <Label Text="{Binding ReturnedResultText}" FontSize="14" TextColor="#2563EB" />
+                </VerticalStackLayout>
+
+                <CollectionView IsVisible="{Binding ShowResultOverview}"
+                                ItemsSource="{Binding Questions}"
+                                SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <controls:EmptyStateView TitleText="暂无逐题结果"
+                                                 DescriptionText="如果 AI 已完成但这里为空，请重新检查一次。"
+                                                 IconText="检" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,7"
+                                    Padding="10,8"
+                                    BackgroundColor="{Binding RowBackgroundColor}"
+                                    Stroke="{Binding RowStrokeColor}"
+                                    StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="14" />
+                                </Border.StrokeShape>
+                                <Grid ColumnDefinitions="52,76,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="3">
+                                    <Label Text="{Binding QuestionNo, StringFormat='第{0}题'}"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="#1E293B"
+                                           VerticalTextAlignment="Center" />
+                                    <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                        <Label Text="{Binding StatusIcon}" FontSize="16" TextColor="{Binding StatusColor}" />
+                                        <Label Text="{Binding StatusText}" FontSize="13" FontAttributes="Bold" TextColor="{Binding StatusColor}" />
+                                    </HorizontalStackLayout>
+                                    <Label Grid.Column="2"
+                                           Text="{Binding StudentAnswerText, StringFormat='学生：{0}'}"
+                                           FontSize="13"
+                                           TextColor="#64748B"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Grid.Column="3"
+                                           Text="{Binding CorrectAnswerText, StringFormat='答案：{0}'}"
+                                           FontSize="13"
+                                           TextColor="#64748B"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Grid.Row="1" Grid.ColumnSpan="4"
+                                           Text="{Binding ResultSummary}"
+                                           FontSize="13"
+                                           TextColor="#64748B"
+                                           LineBreakMode="TailTruncation" />
+                                </Grid>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectQuestionCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <ScrollView IsVisible="{Binding ShowQuestionDetail}">
+                    <VerticalStackLayout Spacing="10">
+                        <Button Text="返回结果列表"
+                                HorizontalOptions="Start"
+                                HeightRequest="40"
+                                CornerRadius="14"
+                                BackgroundColor="#F1F5F9"
+                                TextColor="#334155"
+                                Command="{Binding BackToResultListCommand}" />
+                        <Label Text="{Binding SelectedQuestion.QuestionNo, StringFormat='第{0}题'}"
+                               FontSize="20"
+                               FontAttributes="Bold"
+                               TextColor="#1E293B" />
+                        <Label Text="{Binding SelectedQuestion.QuestionText}" FontSize="15" TextColor="#334155" />
+                        <Label Text="{Binding SelectedQuestion.StudentAnswerText, StringFormat='学生答案：{0}'}" FontSize="15" TextColor="#475569" />
+                        <Label Text="{Binding SelectedQuestion.CorrectAnswerText, StringFormat='正确答案：{0}'}" FontSize="15" TextColor="#475569" />
+                        <Label Text="{Binding SelectedQuestion.Result.MistakeReason, StringFormat='错因分析：{0}'}" FontSize="15" TextColor="#475569" />
+                        <Label Text="{Binding SelectedQuestion.DetailText}" FontSize="15" TextColor="#334155" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2"
+              Padding="12,10"
+              ColumnDefinitions="*,*,*"
+              ColumnSpacing="8"
+              BackgroundColor="#FFFFFF">
+            <Button Text="{Binding StartCheckButtonText}"
+                    HeightRequest="54"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F766E"
+                    TextColor="#FFFFFF"
+                    IsEnabled="{Binding CanStartCheck}"
+                    Command="{Binding StartCheckCommand}" />
+            <Button Grid.Column="1"
+                    Text="加入错题本"
+                    HeightRequest="54"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F172A"
+                    TextColor="#FFFFFF"
+                    IsEnabled="{Binding CanAddWrongBook}"
+                    Command="{Binding AddWrongCommand}"
+                    CommandParameter="{Binding SelectedQuestion}" />
+            <Button Grid.Column="2"
+                    Text="生成类似题"
+                    HeightRequest="54"
+                    CornerRadius="18"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="#EEF2F7"
+                    TextColor="#94A3B8"
+                    Command="{Binding PracticeCommand}"
+                    CommandParameter="{Binding SelectedQuestion}" />
+        </Grid>
+
+        <controls:LoadingOverlay Grid.RowSpan="3"
+                                 IsLoading="{Binding IsBlockingLoading}"
+                                 LoadingText="正在处理作业图片..." />
+    </Grid>
+</ContentPage>

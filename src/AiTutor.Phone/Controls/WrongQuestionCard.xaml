@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Name="Root"
+             x:Class="AiTutor.Maui.Controls.WrongQuestionCard">
+    <Border Padding="18"
+            BackgroundColor="#FFFFFF"
+            Stroke="#EEF2F7">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="22" />
+        </Border.StrokeShape>
+        <VerticalStackLayout Spacing="11">
+            <BoxView HeightRequest="4" WidthRequest="56" HorizontalOptions="Start" BackgroundColor="#F59E0B" />
+            <Grid ColumnDefinitions="*,Auto">
+                <Border Padding="12,6" BackgroundColor="#F8FAFC" StrokeThickness="0" HorizontalOptions="Start">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="14" />
+                    </Border.StrokeShape>
+                    <Label Text="{Binding KnowledgePoint, Source={x:Reference Root}}" FontSize="13" FontAttributes="Bold" TextColor="#64748B" />
+                </Border>
+                <Label Grid.Column="1" Text="{Binding ReviewTime, Source={x:Reference Root}}" FontSize="12" TextColor="#94A3B8" VerticalTextAlignment="Center" />
+            </Grid>
+            <Label Text="{Binding ErrorReason, Source={x:Reference Root}}" FontSize="16" FontAttributes="Bold" TextColor="#1E293B" LineBreakMode="TailTruncation" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Border Padding="12,6" BackgroundColor="#FEF3C7" StrokeThickness="0" HorizontalOptions="Start">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Label Text="{Binding MasteryStatus, Source={x:Reference Root}}" FontSize="12" FontAttributes="Bold" TextColor="#B45309" />
+                </Border>
+                <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                    <Button Text="重做" FontSize="12" FontAttributes="Bold" HeightRequest="34" CornerRadius="12" BackgroundColor="#F0FDFA" TextColor="#0F766E" Command="{Binding RedoCommand, Source={x:Reference Root}}" />
+                    <Button Text="讲解" FontSize="12" FontAttributes="Bold" HeightRequest="34" CornerRadius="12" BackgroundColor="#EFF6FF" TextColor="#2563EB" Command="{Binding ExplainCommand, Source={x:Reference Root}}" />
+                    <Button Text="同类题" FontSize="12" FontAttributes="Bold" HeightRequest="34" CornerRadius="12" BackgroundColor="#FFF7ED" TextColor="#EA580C" Command="{Binding PracticeCommand, Source={x:Reference Root}}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

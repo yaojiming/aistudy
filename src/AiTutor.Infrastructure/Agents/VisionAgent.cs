@@ -1,5 +1,6 @@
 using AiTutor.Core.Interfaces;
 using AiTutor.Shared.Agent;
+using Microsoft.Extensions.Logging;
 
 namespace AiTutor.Infrastructure.Agents;
 
@@ -10,11 +11,16 @@ public class VisionAgent : IStreamingAgent
 {
     private readonly IVisionModelProvider _visionProvider;
     private readonly IPromptTemplateService _promptTemplateService;
+    private readonly ILogger<VisionAgent> _logger;
 
-    public VisionAgent(IVisionModelProvider visionProvider, IPromptTemplateService promptTemplateService)
+    public VisionAgent(
+        IVisionModelProvider visionProvider,
+        IPromptTemplateService promptTemplateService,
+        ILogger<VisionAgent> logger)
     {
         _visionProvider = visionProvider;
         _promptTemplateService = promptTemplateService;
+        _logger = logger;
     }
 
     public string Name => "VisionAgent";
@@ -50,6 +56,12 @@ public class VisionAgent : IStreamingAgent
             answerText += delta;
             yield return new AgentStreamChunkDto { Type = "delta", Text = delta };
         }
+
+        _logger.LogInformation(
+            "Vision stream completed. AnswerLength={AnswerLength}, Model={Model}, EnableThinking={EnableThinking}",
+            answerText.Length,
+            request.ModelName ?? route.ModelName,
+            request.EnableThinking);
 
         yield return new AgentStreamChunkDto { Type = "final", FinalResponse = CreateResponse(route, answerText) };
     }

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
+             x:Class="AiTutor.Maui.Views.HomeworkCheckImagePage"
+             Shell.NavBarIsVisible="False"
+             Title="作业图片"
+             BackgroundColor="#0F172A">
+
+    <Grid RowDefinitions="64,*,52" BackgroundColor="#0F172A">
+        <Grid Padding="12,8"
+              ColumnDefinitions="44,*,Auto"
+              ColumnSpacing="10"
+              BackgroundColor="#111827">
+            <Button Text="‹"
+                    FontSize="30"
+                    FontAttributes="Bold"
+                    BackgroundColor="#1E293B"
+                    TextColor="#E2E8F0"
+                    CornerRadius="16"
+                    Padding="0"
+                    Command="{Binding BackToResultPageCommand}" />
+            <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                <Label Text="作业图片"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="#F8FAFC" />
+                <Label Text="点击题目框可以查看对应详情"
+                       FontSize="12"
+                       TextColor="#94A3B8" />
+            </VerticalStackLayout>
+            <Label Grid.Column="2"
+                   Text="{Binding ReturnedResultText}"
+                   FontSize="13"
+                   TextColor="#93C5FD"
+                   VerticalTextAlignment="Center" />
+        </Grid>
+
+        <Border Grid.Row="1"
+                Margin="12"
+                Padding="8"
+                BackgroundColor="#111827"
+                Stroke="#334155"
+                StrokeThickness="2">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="24" />
+            </Border.StrokeShape>
+            <Grid>
+                <Image Source="{Binding PreviewImage}" Aspect="AspectFit" />
+                <controls:QuestionRegionOverlayView Regions="{Binding QuestionRegions}"
+                                                    SelectedRegionId="{Binding SelectedQuestionRegionId}"
+                                                    ImagePixelWidth="{Binding ImagePixelWidth}"
+                                                    ImagePixelHeight="{Binding ImagePixelHeight}"
+                                                    RegionTappedCommand="{Binding SelectQuestionRegionCommand}" />
+                <controls:EmptyStateView TitleText="还没有作业图片"
+                                         DescriptionText="返回上一页选择作业图片并开始检查。"
+                                         IconText="图"
+                                         IsVisible="{Binding HasPreview, Converter={StaticResource InvertedBoolConverter}}" />
+            </Grid>
+        </Border>
+
+        <Label Grid.Row="2"
+               Text="{Binding LatestStatusMessage}"
+               Margin="18,0"
+               FontSize="13"
+               TextColor="#CBD5E1"
+               VerticalTextAlignment="Center"
+               LineBreakMode="TailTruncation" />
+    </Grid>
+</ContentPage>

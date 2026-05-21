@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="AiTutor.Phone.Pages.LauncherHomePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    BackgroundColor="#F5F8FF"
+    Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <Style TargetType="Border" Class="LauncherTile">
+            <Setter Property="Stroke" Value="#E2E8F0" />
+            <Setter Property="StrokeThickness" Value="1" />
+            <Setter Property="BackgroundColor" Value="#FFFFFF" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="StrokeShape">
+                <Setter.Value>
+                    <RoundRectangle CornerRadius="26" />
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Shadow">
+                <Setter.Value>
+                    <Shadow Brush="#CBD5E1" Offset="0,8" Radius="18" Opacity="0.22" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="VerticalStackLayout" Class="LauncherTileContent">
+            <Setter Property="Spacing" Value="12" />
+            <Setter Property="HorizontalOptions" Value="Center" />
+            <Setter Property="VerticalOptions" Value="Center" />
+        </Style>
+
+        <Style TargetType="Border" Class="LauncherIconBubble">
+            <Setter Property="WidthRequest" Value="72" />
+            <Setter Property="HeightRequest" Value="72" />
+            <Setter Property="StrokeThickness" Value="0" />
+            <Setter Property="StrokeShape">
+                <Setter.Value>
+                    <RoundRectangle CornerRadius="22" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Label" Class="LauncherIconText">
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="FontSize" Value="34" />
+            <Setter Property="HorizontalTextAlignment" Value="Center" />
+            <Setter Property="VerticalTextAlignment" Value="Center" />
+        </Style>
+
+        <Style TargetType="Label" Class="LauncherTitle">
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="TextColor" Value="#102033" />
+            <Setter Property="HorizontalTextAlignment" Value="Center" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*" Padding="24,28,24,28" RowSpacing="18">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                <Label
+                    x:Name="DateLabel"
+                    FontAttributes="Bold"
+                    FontSize="19"
+                    TextColor="#102033" />
+                <HorizontalStackLayout Spacing="12">
+                    <Label
+                        x:Name="WeekLabel"
+                        FontSize="14"
+                        TextColor="#64748B" />
+                    <Label
+                        x:Name="TimeLabel"
+                        FontSize="14"
+                        TextColor="#64748B" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+
+            <Button
+                Grid.Column="1"
+                Text="设置"
+                FontSize="14"
+                FontAttributes="Bold"
+                TextColor="#334155"
+                BackgroundColor="#FFFFFF"
+                BorderColor="#E2E8F0"
+                BorderWidth="1"
+                CornerRadius="18"
+                WidthRequest="64"
+                HeightRequest="42"
+                Padding="0"
+                Clicked="OnSettingsClicked" />
+        </Grid>
+
+        <Grid
+            Grid.Row="1"
+            RowDefinitions="*,*,*"
+            ColumnDefinitions="*,*"
+            RowSpacing="18"
+            ColumnSpacing="18">
+
+            <Border StyleClass="LauncherTile" Grid.Row="0" Grid.Column="0">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnWeChatTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout StyleClass="LauncherTileContent">
+                    <Border BackgroundColor="#DDFCEB" StyleClass="LauncherIconBubble">
+                        <Label Text="微" StyleClass="LauncherIconText" TextColor="#16A34A" />
+                    </Border>
+                    <Label Text="微信" StyleClass="LauncherTitle" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="LauncherTile" Grid.Row="0" Grid.Column="1">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnCameraTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout StyleClass="LauncherTileContent">
+                    <Border BackgroundColor="#E0F2FE" StyleClass="LauncherIconBubble">
+                        <Label Text="拍" StyleClass="LauncherIconText" TextColor="#0284C7" />
+                    </Border>
+                    <Label Text="相机" StyleClass="LauncherTitle" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="LauncherTile" Grid.Row="1" Grid.Column="0">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnPhoneTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout StyleClass="LauncherTileContent">
+                    <Border BackgroundColor="#FEF3C7" StyleClass="LauncherIconBubble">
+                        <Label Text="话" StyleClass="LauncherIconText" TextColor="#D97706" />
+                    </Border>
+                    <Label Text="电话" StyleClass="LauncherTitle" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="LauncherTile" Grid.Row="1" Grid.Column="1">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSmsTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout StyleClass="LauncherTileContent">
+                    <Border BackgroundColor="#FCE7F3" StyleClass="LauncherIconBubble">
+                        <Label Text="信" StyleClass="LauncherIconText" TextColor="#DB2777" />
+                    </Border>
+                    <Label Text="短信" StyleClass="LauncherTitle" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="LauncherTile" Grid.Row="2" Grid.Column="0">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnGalleryTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout StyleClass="LauncherTileContent">
+                    <Border BackgroundColor="#DCFCE7" StyleClass="LauncherIconBubble">
+                        <Label Text="图" StyleClass="LauncherIconText" TextColor="#15803D" />
+                    </Border>
+                    <Label Text="图片" StyleClass="LauncherTitle" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border StyleClass="LauncherTile" Grid.Row="2" Grid.Column="1">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnAITutorTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout StyleClass="LauncherTileContent">
+                    <Border BackgroundColor="#DBEAFE" StyleClass="LauncherIconBubble">
+                        <Label Text="学" StyleClass="LauncherIconText" TextColor="#2563EB" />
+                    </Border>
+                    <Label Text="AITutor" StyleClass="LauncherTitle" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

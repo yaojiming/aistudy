@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AiTutor.Maui.Views.HomePage"
+             Shell.NavBarIsVisible="False"
+             Title="AiTutor"
+             BackgroundColor="#F6F8FC">
+
+    <Grid RowDefinitions="92,*" Padding="18,18,18,24" RowSpacing="18">
+        <Border Padding="18,12"
+                BackgroundColor="#FFFFFF"
+                Stroke="#E2E8F0"
+                StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="24" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                    <HorizontalStackLayout Spacing="10">
+                        <Label x:Name="DateLabel"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="#102033"
+                               VerticalTextAlignment="Center" />
+                        <Label x:Name="WeekLabel"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="#2563EB"
+                               VerticalTextAlignment="Center" />
+                    </HorizontalStackLayout>
+                    <Label x:Name="TimeLabel"
+                           FontSize="26"
+                           FontAttributes="Bold"
+                           TextColor="#102033" />
+                </VerticalStackLayout>
+
+                <Button Grid.Column="1"
+                        Text="设置"
+                        WidthRequest="74"
+                        HeightRequest="48"
+                        CornerRadius="18"
+                        FontSize="15"
+                        FontAttributes="Bold"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#475569"
+                        BorderColor="#E2E8F0"
+                        BorderWidth="1"
+                        Command="{Binding OpenSettingsCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,*"
+              RowDefinitions="*,*,*"
+              ColumnSpacing="14"
+              RowSpacing="14">
+            <Button Text="问 AI 老师"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    CornerRadius="28"
+                    FontSize="22"
+                    FontAttributes="Bold"
+                    BackgroundColor="#2563EB"
+                    TextColor="#FFFFFF"
+                    Command="{Binding OpenChatCommand}" />
+
+            <Button Text="拍照讲题"
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    CornerRadius="28"
+                    FontSize="22"
+                    FontAttributes="Bold"
+                    BackgroundColor="#0F766E"
+                    TextColor="#FFFFFF"
+                    Command="{Binding OpenPhotoQuestionCommand}" />
+
+            <Button Text="检查作业"
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    CornerRadius="28"
+                    FontSize="22"
+                    FontAttributes="Bold"
+                    BackgroundColor="#F97316"
+                    TextColor="#FFFFFF"
+                    Command="{Binding OpenHomeworkCheckCommand}" />
+
+            <Button Text="错题复习"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    CornerRadius="28"
+                    FontSize="22"
+                    FontAttributes="Bold"
+                    BackgroundColor="#E11D48"
+                    TextColor="#FFFFFF"
+                    Command="{Binding OpenWrongBookCommand}" />
+
+            <Button Text="教材"
+                    Grid.Row="2"
+                    Grid.Column="0"
+                    CornerRadius="28"
+                    FontSize="22"
+                    FontAttributes="Bold"
+                    BackgroundColor="#FFFFFF"
+                    TextColor="#CBD5E1"
+                    BorderColor="#E2E8F0"
+                    BorderWidth="1"
+                    IsEnabled="False" />
+
+            <Button Text="学习计划"
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    CornerRadius="28"
+                    FontSize="22"
+                    FontAttributes="Bold"
+                    BackgroundColor="#FFFFFF"
+                    TextColor="#CBD5E1"
+                    BorderColor="#E2E8F0"
+                    BorderWidth="1"
+                    IsEnabled="False" />
+        </Grid>
+    </Grid>
+</ContentPage>

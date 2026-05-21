@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:AiTutor.Maui.Controls"
+             x:Class="AiTutor.Maui.Views.WrongBookPage"
+             Shell.NavBarIsVisible="False"
+             Title="错题本"
+             BackgroundColor="#F8FAFC">
+
+    <Grid RowDefinitions="72,*">
+        <Grid Padding="16,10"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="10"
+              BackgroundColor="#FFFFFF">
+            <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                <Label Text="错题本"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="#1E293B" />
+                <Label Text="按学科、掌握状态和日期筛选"
+                       FontSize="12"
+                       TextColor="#94A3B8" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1"
+                    Text="录入"
+                    IsEnabled="False"
+                    WidthRequest="66"
+                    HeightRequest="42"
+                    CornerRadius="15"
+                    FontSize="14"
+                    FontAttributes="Bold"
+                    BackgroundColor="#EEF2FF"
+                    TextColor="#A5B4FC" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="14" Spacing="14">
+                <Grid ColumnDefinitions="*,*" RowDefinitions="44,44" ColumnSpacing="10" RowSpacing="10">
+                    <Picker ItemsSource="{Binding SubjectFilters}" SelectedItem="{Binding SelectedSubject}" FontSize="14" BackgroundColor="#FFFFFF" />
+                    <Picker Grid.Column="1" ItemsSource="{Binding MasteryFilters}" SelectedItem="{Binding SelectedMasteryStatus}" FontSize="14" BackgroundColor="#FFFFFF" />
+                    <DatePicker Grid.Row="1" Grid.ColumnSpan="2" Date="{Binding SelectedDate}" FontSize="14" BackgroundColor="#FFFFFF" />
+                </Grid>
+
+                <Button Text="刷新"
+                        HeightRequest="46"
+                        CornerRadius="16"
+                        FontSize="16"
+                        FontAttributes="Bold"
+                        BackgroundColor="#2563EB"
+                        TextColor="#FFFFFF" />
+
+                <CollectionView ItemsSource="{Binding WrongQuestions}">
+                    <CollectionView.EmptyView>
+                        <controls:EmptyStateView TitleText="没有错题"
+                                                 DescriptionText="做得不错，继续保持。"
+                                                 IconText="✓" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <controls:WrongQuestionCard KnowledgePoint="{Binding KnowledgePoint}"
+                                                            ErrorReason="{Binding ErrorReason}"
+                                                            MasteryStatus="{Binding MasteryStatus}"
+                                                            ReviewTime="{Binding NextReviewTime, StringFormat='下次复习：{0}'}"
+                                                            RedoCommand="{Binding BindingContext.RedoCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                            ExplainCommand="{Binding BindingContext.ExplainCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                            PracticeCommand="{Binding BindingContext.PracticeCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" />
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding BindingContext.OpenDetailCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}" CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

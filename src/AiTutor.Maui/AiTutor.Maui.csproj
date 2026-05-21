@@ -51,7 +51,8 @@
 		<!-- VS 调试时禁用 Fast Deployment，避免设备端 .__override__ 缺程序集导致冷启动黑屏或原生 abort。 -->
 		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
 		<!-- 当前主要调试目标是 x86_64 Android 模拟器；减少多 ABI 打包可降低调试包损坏概率。 -->
-		<RuntimeIdentifier>android-x64</RuntimeIdentifier>
+		<RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+
 		<MonoAndroidResourcePrefix>Platforms\Android\Resources</MonoAndroidResourcePrefix>
 		<!-- 嵌入程序集时不打包 Android 调试符号，避开部分 Windows Android 工具链的 PDB so 包装错误。 -->
 		<AndroidIncludeDebugSymbols>false</AndroidIncludeDebugSymbols>
