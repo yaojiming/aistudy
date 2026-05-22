@@ -48,6 +48,7 @@ try
     }
 
     app.UseSerilogRequestLogging();
+    app.UseStaticFiles();
     app.UseAuthorization();
     app.MapControllers();
     app.Run();

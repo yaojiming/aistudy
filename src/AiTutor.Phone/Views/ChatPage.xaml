@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Name="ChatRoot"
              x:Class="AiTutor.Maui.Views.ChatPage"
              Shell.NavBarIsVisible="False"
              Title="&#x95EE; AI"
              BackgroundColor="#F7F9FC">
 
-    <Grid RowDefinitions="72,*,96" BackgroundColor="#F7F9FC">
+    <Grid RowDefinitions="72,*,116" BackgroundColor="#F7F9FC">
         <Border Grid.Row="0" BackgroundColor="#FFFFFF" StrokeThickness="0">
             <Grid Padding="14,10" ColumnDefinitions="44,48,*,76" ColumnSpacing="10">
                 <Button Text="&#x2039;"
@@ -70,11 +71,48 @@
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="22" />
                                 </Border.StrokeShape>
-                                <Label Text="{Binding VisibleText}"
-                                       FontSize="16"
-                                       LineHeight="1.32"
-                                       TextColor="{Binding MessageColor}"
-                                       LineBreakMode="WordWrap" />
+                                <VerticalStackLayout Spacing="7">
+                                    <Grid IsVisible="{Binding IsVoice}"
+                                          ColumnDefinitions="Auto,*,Auto"
+                                          ColumnSpacing="8">
+                                        <Button Text="▶"
+                                                FontSize="13"
+                                                WidthRequest="34"
+                                                HeightRequest="34"
+                                                CornerRadius="13"
+                                                Padding="0"
+                                                BackgroundColor="#EAF2FF"
+                                                TextColor="#2563EB"
+                                                IsVisible="{Binding HasVoice}"
+                                                Command="{Binding BindingContext.PlayVoiceCommand, Source={x:Reference ChatRoot}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Label Grid.Column="1"
+                                               Text="语音消息"
+                                               FontSize="15"
+                                               FontAttributes="Bold"
+                                               TextColor="{Binding MessageColor}"
+                                               VerticalTextAlignment="Center" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding VoiceDurationText}"
+                                               FontSize="13"
+                                               TextColor="{Binding MessageColor}"
+                                               VerticalTextAlignment="Center" />
+                                    </Grid>
+                                    <Label Text="{Binding VisibleText}"
+                                           IsVisible="{Binding HasVisibleText}"
+                                           FontSize="16"
+                                           LineHeight="1.32"
+                                           TextColor="{Binding MessageColor}"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding StatusText}"
+                                           FontSize="12"
+                                           TextColor="{Binding SpeakerColor}"
+                                           IsVisible="{Binding HasStatusText}" />
+                                    <Label Text="{Binding ErrorMessage}"
+                                           FontSize="12"
+                                           TextColor="#EF4444"
+                                           IsVisible="{Binding HasError}" />
+                                </VerticalStackLayout>
                             </Border>
                             <Label Text="{Binding VisibleSpeakerText}"
                                    FontSize="10"
@@ -87,9 +125,16 @@
         </ScrollView>
 
         <Border Grid.Row="2" BackgroundColor="#FFFFFF" StrokeThickness="0">
-            <Grid Padding="12,12,14,14" ColumnDefinitions="44,44,*" ColumnSpacing="8">
+            <Grid Padding="12,8,14,12" RowDefinitions="Auto,*" ColumnDefinitions="44,44,*" ColumnSpacing="8">
+                <Label Grid.ColumnSpan="3"
+                       Text="{Binding VoiceRecordHint}"
+                       FontSize="13"
+                       TextColor="#2563EB"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="{Binding IsRecording}" />
                 <Border WidthRequest="44"
                         HeightRequest="44"
+                        Grid.Row="1"
                         BackgroundColor="#F4F7FB"
                         StrokeThickness="0">
                     <Border.StrokeShape>
@@ -107,6 +152,7 @@
                     </Grid>
                 </Border>
                 <Border Grid.Column="1"
+                        Grid.Row="1"
                         WidthRequest="44"
                         HeightRequest="44"
                         BackgroundColor="#F4F7FB"
@@ -118,15 +164,14 @@
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding VoicePlaceholderCommand}" />
                     </Border.GestureRecognizers>
-                    <Grid Padding="11">
-                        <Path Stroke="#91A1BA"
-                              StrokeThickness="2.5"
-                              StrokeLineCap="Round"
-                              StrokeLineJoin="Round"
-                              Data="M12,4 A3,3 0 0 0 9,7 L9,12 A3,3 0 0 0 15,12 L15,7 A3,3 0 0 0 12,4 M6,11 A6,6 0 0 0 18,11 M12,17 L12,21 M9,21 L15,21" />
-                    </Grid>
+                    <Label Text="{Binding VoiceButtonText}"
+                           FontSize="18"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           TextColor="#91A1BA" />
                 </Border>
                 <Border Grid.Column="2"
+                        Grid.Row="1"
                         Padding="14,0,6,0"
                         BackgroundColor="#F8FAFD"
                         Stroke="#EEF2F8"

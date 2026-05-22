@@ -49,10 +49,17 @@ public static class MauiProgram
 #if ANDROID
         builder.Services.AddSingleton<IPhoneLauncherService, AiTutor.Phone.Platforms.Android.Services.PhoneLauncherService>();
         builder.Services.AddSingleton<ISpeechInteractionService, AndroidSpeechInteractionService>();
+        builder.Services.AddSingleton<IVoiceRecorderService, AndroidVoiceRecorderService>();
+        builder.Services.AddSingleton<IAudioPlayerService, AndroidAudioPlayerService>();
 #else
         builder.Services.AddSingleton<IPhoneLauncherService, PhoneLauncherService>();
         builder.Services.AddSingleton<ISpeechInteractionService, SpeechInteractionService>();
+        builder.Services.AddSingleton<IVoiceRecorderService, NoopVoiceRecorderService>();
+        builder.Services.AddSingleton<IAudioPlayerService, NoopAudioPlayerService>();
 #endif
+        builder.Services.AddSingleton<ISpeechToTextService, ApiSpeechToTextService>();
+        builder.Services.AddSingleton<ITextToSpeechService, ApiTextToSpeechService>();
+        builder.Services.AddSingleton<IAiChatService, ApiAiChatService>();
 
         builder.Services.AddTransient<HomeViewModel>();
         builder.Services.AddTransient<ChatViewModel>();

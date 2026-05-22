@@ -41,6 +41,7 @@ public static class DependencyInjection
 
         services.AddDbContext<AiTutorDbContext>(options => options.UseSqlServer(connectionString));
         services.Configure<AiProviderOptions>(options => ConfigureAiProviderOptions(configuration, options));
+        services.Configure<VoiceAiOptions>(options => ConfigureVoiceAiOptions(configuration, options));
         // 模型请求的超时统一由各 Provider 内部的 CancellationTokenSource 控制，
         // 避免 HttpClient 默认 100 秒超时先于 AiProviders:TimeoutSeconds 触发。
         services.AddHttpClient<DeepSeekTextModelProvider>(client =>
@@ -48,6 +49,14 @@ public static class DependencyInjection
             client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
         });
         services.AddHttpClient<GlmVisionModelProvider>(client =>
+        {
+            client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+        });
+        services.AddHttpClient<RealSpeechToTextService>(client =>
+        {
+            client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+        });
+        services.AddHttpClient<RealTextToSpeechService>(client =>
         {
             client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
         });
@@ -65,6 +74,8 @@ public static class DependencyInjection
         services.AddScoped<IModelCallLogService, ModelCallLogService>();
         services.AddScoped<IAgentRouteLogService, AgentRouteLogService>();
         services.AddScoped<IMediaResourceService, MediaResourceService>();
+        services.AddScoped<ISpeechToTextService, RealSpeechToTextService>();
+        services.AddScoped<ITextToSpeechService, RealTextToSpeechService>();
 
         services.AddScoped<IAgent, ChatAgent>();
         services.AddScoped<IAgent, VisionAgent>();
@@ -133,5 +144,52 @@ public static class DependencyInjection
         options.Zhipu.BaseUrl = configuration["AiProviders:Zhipu:BaseUrl"] ?? options.Zhipu.BaseUrl;
         options.Zhipu.ApiKey = configuration["AiProviders:Zhipu:ApiKey"] ?? string.Empty;
         options.Zhipu.VisionModel = configuration["AiProviders:Zhipu:VisionModel"] ?? options.Zhipu.VisionModel;
+    }
+
+    private static void ConfigureVoiceAiOptions(IConfiguration configuration, VoiceAiOptions options)
+    {
+        options.Asr.Provider = configuration["VoiceAi:Asr:Provider"] ?? options.Asr.Provider;
+        options.Asr.BaseUrl = configuration["VoiceAi:Asr:BaseUrl"] ?? options.Asr.BaseUrl;
+        options.Asr.AppId = configuration["VoiceAi:Asr:AppId"] ?? string.Empty;
+        options.Asr.ApiKey = configuration["VoiceAi:Asr:ApiKey"] ?? string.Empty;
+        options.Asr.ApiSecret = configuration["VoiceAi:Asr:ApiSecret"] ?? string.Empty;
+        options.Asr.Model = configuration["VoiceAi:Asr:Model"] ?? options.Asr.Model;
+        options.Asr.TimeoutSeconds = int.TryParse(configuration["VoiceAi:Asr:TimeoutSeconds"], out var asrTimeout)
+            ? asrTimeout
+            : options.Asr.TimeoutSeconds;
+
+        options.Chat.Provider = configuration["VoiceAi:Chat:Provider"] ?? options.Chat.Provider;
+        options.Chat.BaseUrl = configuration["VoiceAi:Chat:BaseUrl"] ?? options.Chat.BaseUrl;
+        options.Chat.ApiKey = configuration["VoiceAi:Chat:ApiKey"] ?? string.Empty;
+        options.Chat.Model = configuration["VoiceAi:Chat:Model"] ?? options.Chat.Model;
+        options.Chat.TimeoutSeconds = int.TryParse(configuration["VoiceAi:Chat:TimeoutSeconds"], out var chatTimeout)
+            ? chatTimeout
+            : options.Chat.TimeoutSeconds;
+
+        options.Tts.Provider = configuration["VoiceAi:Tts:Provider"] ?? options.Tts.Provider;
+        options.Tts.BaseUrl = configuration["VoiceAi:Tts:BaseUrl"] ?? options.Tts.BaseUrl;
+        options.Tts.AppId = configuration["VoiceAi:Tts:AppId"] ?? string.Empty;
+        options.Tts.ApiKey = configuration["VoiceAi:Tts:ApiKey"] ?? string.Empty;
+        options.Tts.ApiSecret = configuration["VoiceAi:Tts:ApiSecret"] ?? string.Empty;
+        options.Tts.Model = configuration["VoiceAi:Tts:Model"] ?? options.Tts.Model;
+        options.Tts.Voice = configuration["VoiceAi:Tts:Voice"] ?? options.Tts.Voice;
+        options.Tts.Format = configuration["VoiceAi:Tts:Format"] ?? options.Tts.Format;
+        options.Tts.TimeoutSeconds = int.TryParse(configuration["VoiceAi:Tts:TimeoutSeconds"], out var ttsTimeout)
+            ? ttsTimeout
+            : options.Tts.TimeoutSeconds;
+
+        options.Audio.RecordFormat = configuration["VoiceAi:Audio:RecordFormat"] ?? options.Audio.RecordFormat;
+        options.Audio.MaxRecordSeconds = int.TryParse(configuration["VoiceAi:Audio:MaxRecordSeconds"], out var maxSeconds)
+            ? maxSeconds
+            : options.Audio.MaxRecordSeconds;
+        options.Audio.MinRecordSeconds = int.TryParse(configuration["VoiceAi:Audio:MinRecordSeconds"], out var minSeconds)
+            ? minSeconds
+            : options.Audio.MinRecordSeconds;
+        options.Audio.AutoPlayAssistantVoice = bool.TryParse(configuration["VoiceAi:Audio:AutoPlayAssistantVoice"], out var autoPlay)
+            ? autoPlay
+            : options.Audio.AutoPlayAssistantVoice;
+        options.Audio.StopCurrentPlaybackWhenUserRecords = bool.TryParse(configuration["VoiceAi:Audio:StopCurrentPlaybackWhenUserRecords"], out var stopPlayback)
+            ? stopPlayback
+            : options.Audio.StopCurrentPlaybackWhenUserRecords;
     }
 }

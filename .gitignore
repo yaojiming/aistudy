@@ -33,3 +33,4 @@ logs/
 *.keystore
 /src/AiTutor.Api/wwwroot
 /artifacts
+/src/AiTutor.Api/appsettings.json
