@@ -32,6 +32,8 @@ public class ChatViewModel : ViewModelBase
     private bool _isAiThinking;
     private bool _isSynthesizing;
     private bool _isPlaying;
+    private bool _isVoiceInputMode;
+    private bool _isVoiceRecordingCanceling;
     private int _recordSeconds;
     private string? _currentPlayingMessageId;
     private CancellationTokenSource? _sendCancellationTokenSource;
@@ -74,10 +76,10 @@ public class ChatViewModel : ViewModelBase
         QuickQuestions = ["再讲简单点", "给我例子", "出一道类似题", "加入错题本"];
         SubmitCommand = new ReentrantAsyncCommand(SubmitOrStopAsync);
         NewSessionCommand = new AsyncCommand(NewSessionAsync);
-        BackCommand = new AsyncCommand(() => Shell.Current.GoToAsync("//home", false));
+        BackCommand = new AsyncCommand(BackAsync);
         PhotoPlaceholderCommand = new AsyncCommand(() => Shell.Current.GoToAsync("photo-question", false));
-        VoicePlaceholderCommand = new ReentrantAsyncCommand(ToggleVoiceRecordAsync);
-        ToggleVoiceRecordCommand = VoicePlaceholderCommand;
+        VoicePlaceholderCommand = new AsyncCommand(ToggleVoiceInputModeAsync);
+        ToggleVoiceRecordCommand = new ReentrantAsyncCommand(ToggleVoiceRecordAsync);
         CancelVoiceRecordCommand = new AsyncCommand(CancelVoiceRecordAsync);
         PlayVoiceCommand = new AsyncCommand<ChatMessageViewModel>(PlayVoiceMessageAsync);
         QuickActionCommand = new AsyncCommand<string>(HandleQuickActionAsync);
@@ -115,7 +117,22 @@ public class ChatViewModel : ViewModelBase
 
     public bool IsThinkingModeEnabled { get => _isThinkingModeEnabled; set => SetProperty(ref _isThinkingModeEnabled, value); }
 
-    public string QuestionText { get => _questionText; set => SetProperty(ref _questionText, value); }
+    public string QuestionText
+    {
+        get => _questionText;
+        set
+        {
+            if (SetProperty(ref _questionText, value))
+            {
+                OnPropertyChanged(nameof(HasQuestionText));
+                OnPropertyChanged(nameof(CanShowTextSendButton));
+            }
+        }
+    }
+
+    public bool HasQuestionText => !string.IsNullOrWhiteSpace(QuestionText);
+
+    public bool CanShowTextSendButton => IsTextInputMode && HasQuestionText;
 
     public string? ToastMessage
     {
@@ -166,6 +183,9 @@ public class ChatViewModel : ViewModelBase
                 OnPropertyChanged(nameof(VoiceButtonText));
                 OnPropertyChanged(nameof(VoiceRecordHint));
                 OnPropertyChanged(nameof(VoiceButtonOpacity));
+                OnPropertyChanged(nameof(VoiceRecordingWaveText));
+                OnPropertyChanged(nameof(HoldToTalkText));
+                OnPropertyChanged(nameof(VoiceRecordingOverlayText));
                 RefreshVoiceStateProperties();
             }
         }
@@ -181,6 +201,36 @@ public class ChatViewModel : ViewModelBase
 
     public string? CurrentPlayingMessageId { get => _currentPlayingMessageId; private set => SetProperty(ref _currentPlayingMessageId, value); }
 
+    public bool IsVoiceInputMode
+    {
+        get => _isVoiceInputMode;
+        private set
+        {
+            if (SetProperty(ref _isVoiceInputMode, value))
+            {
+                OnPropertyChanged(nameof(IsTextInputMode));
+                OnPropertyChanged(nameof(InputModeButtonText));
+                OnPropertyChanged(nameof(HoldToTalkText));
+                OnPropertyChanged(nameof(CanShowTextSendButton));
+            }
+        }
+    }
+
+    public bool IsTextInputMode => !IsVoiceInputMode;
+
+    public bool IsVoiceRecordingCanceling
+    {
+        get => _isVoiceRecordingCanceling;
+        private set
+        {
+            if (SetProperty(ref _isVoiceRecordingCanceling, value))
+            {
+                OnPropertyChanged(nameof(VoiceRecordingOverlayText));
+                OnPropertyChanged(nameof(VoiceRecordingOverlayColor));
+            }
+        }
+    }
+
     public int RecordSeconds
     {
         get => _recordSeconds;
@@ -189,6 +239,7 @@ public class ChatViewModel : ViewModelBase
             if (SetProperty(ref _recordSeconds, value))
             {
                 OnPropertyChanged(nameof(VoiceRecordHint));
+                OnPropertyChanged(nameof(VoiceRecordingWaveText));
             }
         }
     }
@@ -200,6 +251,16 @@ public class ChatViewModel : ViewModelBase
     public string VoiceButtonText => IsRecording ? "■" : "🎙";
 
     public string VoiceRecordHint => IsRecording ? $"正在听你说话... {RecordSeconds}s" : string.Empty;
+
+    public string VoiceRecordingWaveText => RecordSeconds % 2 == 0 ? "▂ ▃ ▅ ▆ ▅ ▃ ▂" : "▃ ▅ ▆ ▇ ▆ ▅ ▃";
+
+    public string InputModeButtonText => IsVoiceInputMode ? "⌨" : "🎙";
+
+    public string HoldToTalkText => IsRecording ? "松开发送" : "按住 说话";
+
+    public string VoiceRecordingOverlayText => IsVoiceRecordingCanceling ? "松开手指，取消发送" : "手指上滑，取消发送";
+
+    public Color VoiceRecordingOverlayColor => IsVoiceRecordingCanceling ? Color.FromArgb("#B91C1C") : Color.FromArgb("#111827");
 
     public bool CanStartRecord => !IsRecording && !IsSending && !IsRecognizing && !IsAiThinking && !IsSynthesizing;
 
@@ -248,6 +309,75 @@ public class ChatViewModel : ViewModelBase
         return SubmitMessageAsync(QuestionText);
     }
 
+    private async Task BackAsync()
+    {
+        await LeavePageAsync();
+        await Shell.Current.GoToAsync("//home", false);
+    }
+
+    private Task ToggleVoiceInputModeAsync()
+    {
+        if (IsRecording)
+        {
+            return Task.CompletedTask;
+        }
+
+        IsVoiceInputMode = !IsVoiceInputMode;
+        return Task.CompletedTask;
+    }
+
+    public async Task LeavePageAsync()
+    {
+        StopRecordTimer();
+        IsRecording = false;
+        IsPlaying = false;
+        CurrentPlayingMessageId = null;
+        _sendCancellationTokenSource?.Cancel();
+        _voiceFlowCancellationTokenSource?.Cancel();
+        StopListening();
+        _speechInteractionService.Stop();
+        await _audioPlayerService.StopAsync();
+
+        try
+        {
+            await _voiceRecorderService.CancelRecordAsync();
+        }
+        catch
+        {
+            // 离开页面时清理录音资源，失败不影响导航。
+        }
+    }
+
+    public Task BeginHoldVoiceRecordAsync()
+    {
+        IsVoiceRecordingCanceling = false;
+        return IsVoiceInputMode ? StartVoiceRecordAsync() : Task.CompletedTask;
+    }
+
+    public Task FinishHoldVoiceRecordAsync()
+    {
+        if (IsVoiceRecordingCanceling)
+        {
+            return CancelHoldVoiceRecordAsync();
+        }
+
+        return IsRecording ? StopVoiceRecordAndSendAsync() : Task.CompletedTask;
+    }
+
+    public void UpdateHoldVoiceCancelState(double totalY)
+    {
+        if (IsRecording)
+        {
+            IsVoiceRecordingCanceling = totalY <= -70;
+        }
+    }
+
+    public async Task CancelHoldVoiceRecordAsync()
+    {
+        IsVoiceRecordingCanceling = false;
+        await CancelVoiceRecordAsync(showToast: true);
+    }
+
     private async Task ToggleVoiceRecordAsync()
     {
         if (IsRecording)
@@ -275,6 +405,7 @@ public class ChatViewModel : ViewModelBase
         try
         {
             RecordSeconds = 0;
+            IsVoiceRecordingCanceling = false;
             await _voiceRecorderService.StartRecordAsync();
             IsRecording = true;
             StartRecordTimer(_voiceFlowCancellationTokenSource.Token);
@@ -289,6 +420,7 @@ public class ChatViewModel : ViewModelBase
     {
         StopRecordTimer();
         IsRecording = false;
+        IsVoiceRecordingCanceling = false;
 
         VoiceRecordResult recordResult;
         try
@@ -325,13 +457,22 @@ public class ChatViewModel : ViewModelBase
         await RunVoiceQuestionFlowAsync(userVoiceMessage, _voiceFlowCancellationTokenSource?.Token ?? CancellationToken.None);
     }
 
-    private async Task CancelVoiceRecordAsync()
+    private Task CancelVoiceRecordAsync()
+    {
+        return CancelVoiceRecordAsync(showToast: true);
+    }
+
+    private async Task CancelVoiceRecordAsync(bool showToast)
     {
         StopRecordTimer();
         IsRecording = false;
+        IsVoiceRecordingCanceling = false;
         _voiceFlowCancellationTokenSource?.Cancel();
         await _voiceRecorderService.CancelRecordAsync();
-        await ShowToastAsync("已取消录音");
+        if (showToast)
+        {
+            await ShowToastAsync("已取消发送");
+        }
     }
 
     private async Task RunVoiceQuestionFlowAsync(ChatMessageViewModel userVoiceMessage, CancellationToken cancellationToken)
@@ -410,7 +551,7 @@ public class ChatViewModel : ViewModelBase
             userVoiceMessage.Status = ChatMessageStatus.Failed;
             userVoiceMessage.ErrorMessage = ex.Message.Contains("未配置", StringComparison.OrdinalIgnoreCase)
                 ? "语音服务未配置"
-                : "语音问答失败，请重试";
+                : $"语音问答失败：{ex.Message}";
             await ShowToastAsync(userVoiceMessage.ErrorMessage);
         }
     }
@@ -422,7 +563,7 @@ public class ChatViewModel : ViewModelBase
             return;
         }
 
-        var audio = !string.IsNullOrWhiteSpace(message.VoiceFilePath) ? message.VoiceFilePath : message.VoiceUrl;
+        var audio = ResolvePlayableAudio(message);
         if (string.IsNullOrWhiteSpace(audio))
         {
             await ShowToastAsync("这条消息没有可播放的语音");
@@ -456,6 +597,21 @@ public class ChatViewModel : ViewModelBase
             message.Status = ChatMessageStatus.Completed;
             await ShowToastAsync($"播放失败：{ex.Message}");
         }
+    }
+
+    private static string ResolvePlayableAudio(ChatMessageViewModel message)
+    {
+        if (!string.IsNullOrWhiteSpace(message.VoiceFilePath) && File.Exists(message.VoiceFilePath))
+        {
+            return message.VoiceFilePath;
+        }
+
+        if (!string.IsNullOrWhiteSpace(message.VoiceUrl))
+        {
+            return message.VoiceUrl;
+        }
+
+        return string.Empty;
     }
 
     private async Task SubmitMessageAsync(string? message)

@@ -29,14 +29,33 @@ public sealed class AndroidAudioPlayerService : IAudioPlayerService
         var completionSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _playCompletionSource = completionSource;
         _player = new MediaPlayer();
-        if (Uri.TryCreate(audioPathOrUrl, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        _player.SetAudioAttributes(new AudioAttributes.Builder()
+            .SetUsage(AudioUsageKind.Media)
+            .SetContentType(AudioContentType.Speech)
+            .Build());
+
+        var isRemoteAudio = Uri.TryCreate(audioPathOrUrl, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        if (!isRemoteAudio && !File.Exists(audioPathOrUrl))
+        {
+            throw new FileNotFoundException("音频文件不存在", audioPathOrUrl);
+        }
+
+        _logger.LogInformation(
+            "Android audio playback preparing. SourceType={SourceType}, Exists={Exists}, Source={Source}",
+            isRemoteAudio ? "Url" : "File",
+            !isRemoteAudio && File.Exists(audioPathOrUrl),
+            isRemoteAudio ? uri!.GetLeftPart(UriPartial.Path) : audioPathOrUrl);
+
+        try
         {
             _player.SetDataSource(audioPathOrUrl);
         }
-        else
+        catch (Exception ex)
         {
-            _player.SetDataSource(audioPathOrUrl);
+            _logger.LogWarning(ex, "Failed to set Android audio data source. SourceType={SourceType}", isRemoteAudio ? "Url" : "File");
+            await StopAsync();
+            throw;
         }
 
         _player.Prepared += (_, _) =>
@@ -48,6 +67,7 @@ public sealed class AndroidAudioPlayerService : IAudioPlayerService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to start audio playback.");
+                completionSource.TrySetException(new InvalidOperationException("音频播放启动失败", ex));
             }
         };
         _player.Completion += (_, _) =>
@@ -58,11 +78,21 @@ public sealed class AndroidAudioPlayerService : IAudioPlayerService
         _player.Error += (_, args) =>
         {
             _logger.LogWarning("Android audio playback error. What={What}, Extra={Extra}", args.What, args.Extra);
-            completionSource.TrySetException(new InvalidOperationException("音频播放失败"));
+            completionSource.TrySetException(new InvalidOperationException($"音频播放失败：{args.What}/{args.Extra}"));
             _ = StopAsync();
         };
 
-        _player.PrepareAsync();
+        try
+        {
+            _player.PrepareAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to prepare Android audio playback.");
+            await StopAsync();
+            throw;
+        }
+
         await completionSource.Task;
     }
 

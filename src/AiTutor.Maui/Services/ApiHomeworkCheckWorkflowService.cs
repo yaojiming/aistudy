@@ -96,7 +96,6 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
     private static IReadOnlyList<HomeworkQuestionCheckResult> BuildQuestionResults(AgentResponse response, SizeF imageSize)
     {
         var items = response.HomeworkCheckResult?.Items ?? [];
-        var answerText = response.AnswerText;
         var results = new List<HomeworkQuestionCheckResult>(items.Count);
 
         for (var index = 0; index < items.Count; index++)
@@ -104,7 +103,7 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
             var dto = items[index];
             var questionNo = FirstText(dto.QuestionNo, (index + 1).ToString());
             var bbox = ConvertBBox(dto.BBox, imageSize, index, items.Count);
-            var explanation = FirstText(dto.Explanation, answerText, "AI 已返回结果，但未提供详细解析。");
+            var explanation = FirstNonJsonText(dto.Explanation, "AI 已返回结果，但未提供这道题的详细解析。");
             var shortResult = BuildShortResult(dto);
 
             results.Add(new HomeworkQuestionCheckResult
@@ -213,6 +212,25 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
     private static string FirstText(params string?[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static string FirstNonJsonText(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value) && !LooksLikeJsonPayload(value)) ?? string.Empty;
+    }
+
+    private static bool LooksLikeJsonPayload(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var text = value.TrimStart();
+        return text.StartsWith("{", StringComparison.Ordinal)
+            || text.StartsWith("[", StringComparison.Ordinal)
+            || text.Contains("\"items\"", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("\"coordinateSystem\"", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? FirstNullableText(params string?[] values)

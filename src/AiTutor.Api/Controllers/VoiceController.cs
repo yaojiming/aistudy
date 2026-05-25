@@ -49,6 +49,12 @@ public sealed class VoiceController : ControllerBase
             file.ContentType,
             cancellationToken);
 
+        _logger.LogInformation(
+            "Voice ASR completed. Success={Success}, TextLength={TextLength}, Error={Error}",
+            result.Success,
+            result.Text?.Length ?? 0,
+            result.ErrorMessage);
+
         return Ok(result);
     }
 
@@ -67,7 +73,11 @@ public sealed class VoiceController : ControllerBase
 
         _logger.LogInformation("Voice TTS request received. TextLength={TextLength}", request.Text.Length);
         var result = await _textToSpeechService.ConvertTextToSpeechAsync(request.Text, cancellationToken);
+        _logger.LogInformation(
+            "Voice TTS completed. Success={Success}, HasAudioUrl={HasAudioUrl}, Error={Error}",
+            result.Success,
+            !string.IsNullOrWhiteSpace(result.AudioUrl),
+            result.ErrorMessage);
         return Ok(result);
     }
 }
-

@@ -153,7 +153,6 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
         ILogger logger)
     {
         var items = response.HomeworkCheckResult?.Items ?? [];
-        var answerText = response.AnswerText;
         var mappedBoxes = new List<RectF>(items.Count);
 
         for (var index = 0; index < items.Count; index++)
@@ -168,7 +167,7 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
         {
             var dto = items[index];
             var questionNo = FirstText(dto.QuestionNo, (index + 1).ToString());
-            var explanation = FirstText(dto.Explanation, answerText, "AI 已返回结果，但未提供详细解析。");
+            var explanation = FirstNonJsonText(dto.Explanation, "AI 已返回结果，但未提供这道题的详细解析。");
             var shortResult = BuildShortResult(dto);
 
             logger.LogInformation(
@@ -612,6 +611,25 @@ public sealed class ApiHomeworkCheckWorkflowService : IHomeworkCheckWorkflowServ
     private static string FirstText(params string?[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static string FirstNonJsonText(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value) && !LooksLikeJsonPayload(value)) ?? string.Empty;
+    }
+
+    private static bool LooksLikeJsonPayload(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var text = value.TrimStart();
+        return text.StartsWith("{", StringComparison.Ordinal)
+            || text.StartsWith("[", StringComparison.Ordinal)
+            || text.Contains("\"items\"", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("\"coordinateSystem\"", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? FirstNullableText(params string?[] values)
